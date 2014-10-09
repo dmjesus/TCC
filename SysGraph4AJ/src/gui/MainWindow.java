@@ -55,7 +55,7 @@ public class MainWindow extends JFrame implements GUIWindowInterface {
 		super(name);
 		this.setDefaultCloseOperation(EXIT_ON_CLOSE);
 		this.setVisible(false);
-		//take a good visual for textArea :)
+		//take a good visual for textArea :)..
 		this.textArea.setEditable(false);
 		this.textArea.setBackground(Color.BLACK);
 		this.textArea.setForeground(Color.GREEN);
