@@ -51,7 +51,7 @@ public class ClassAnalysis2 {
 		/*end of check list*/
 
 		Class<?> clazz = null;
-//		This is not necessary aparentely
+
 		String cfully = c.getFullyQualifiedName(); 
 		if(cfully.startsWith("(default package).")){ //take care of default package
 			cfully = cfully.substring("(default package).".length());
@@ -92,7 +92,7 @@ public class ClassAnalysis2 {
 						} else {
 							m = new SysAdvice(meth); //its an Advice
 						}
-					} else if(!name.contains("jacoco")){
+					} else if(!name.contains("$")){
 						m = new SysMethod(meth); //its a regular method
 					}
 					
