@@ -52,11 +52,10 @@ public class ClassAnalysis2 {
 
 		Class<?> clazz = null;
 //		This is not necessary aparentely
-//		String cfully = c.getFullyQualifiedName(); 
-//		if(cfully.startsWith("(default package).")){ //take care of default package
-//			cfully = cfully.substring("(default package).".length());
-//		}
-		String cfully = c.getName();
+		String cfully = c.getFullyQualifiedName(); 
+		if(cfully.startsWith("(default package).")){ //take care of default package
+			cfully = cfully.substring("(default package).".length());
+		}
 		
 		try {
 			clazz = FileLoader.forName(cfully);
