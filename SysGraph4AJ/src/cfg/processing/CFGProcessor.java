@@ -183,72 +183,68 @@ public class CFGProcessor {
 			Set<Integer> processedInstructionIds,
 			List<CodeExceptionGen> exceptionBlocks) {
 		
-		CFGNode finallyBlock = null;
-		CFGNode catchBlock = null;
-		CFGNode tryBlock = null;
-
+	if(exceptionBlocks.isEmpty()) {
+		return;
+	} else {
+		
+		CFGNode tryBlock = new CFGNode();
+		CFGNode endBlock = new CFGNode();
+		
 		Iterator<CodeExceptionGen> codeExceptionIterator = exceptionBlocks.iterator();
-		while(codeExceptionIterator.hasNext()) {
-
+		
+		while (codeExceptionIterator.hasNext()) {
 			CodeExceptionGen codeException = codeExceptionIterator.next();
-			if(processedInstructionIds.contains(codeException.getHandlerPC().getPosition())) {
-				codeExceptionIterator.remove();
+			if(codeException.getCatchType() != null){
+				CFGNode catchBlock = new CFGNode();
+				InstructionHandle catchInstruction = codeException.getHandlerPC();
+				catchBlock.addInstruction(catchInstruction);
+				processedInstructionIds.add(catchInstruction.getPosition());
+				tryBlock.addChildNode(catchBlock, CFGEdgeType.CATCH);
+				catchBlock = this.processInstruction(catchInstruction.getNext(), catchBlock, processedInstructionIds);
+			} else {
 				
-				CFGNode catchReference = new CFGNode();
-				catchReference.addInstruction(codeException.getHandlerPC());
-				catchReference.setReference(true);
-				
-				blockNode.addChildNode(catchReference, CFGEdgeType.CATCH);
+				CFGNode finallyBlock = new CFGNode();
+				InstructionHandle finallyInstruction = codeException.getHandlerPC();
+				finallyBlock.addInstruction(codeException.getHandlerPC());
+				processedInstructionIds.add(finallyInstruction.getPosition());
+				tryBlock.addChildNode(finallyBlock, CFGEdgeType.FINALLY);
+				finallyBlock = this.processInstruction(finallyInstruction.getNext(), finallyBlock, processedInstructionIds);
 			}
+			codeExceptionIterator.remove();
 		}
-
-		if(exceptionBlocks.isEmpty()) {
-			return;
-		}
-
-		InstructionHandle catchOrFinallyWithoutCast = exceptionBlocks.get(0).getEndPC().getNext();
-		InstructionHandle tryInstruction = exceptionBlocks.get(0).getStartPC();
-		tryBlock = this.processInstruction(tryInstruction, blockNode, processedInstructionIds);
 		
-		if(catchOrFinallyWithoutCast instanceof BranchHandle) {
-			BranchHandle catchOrFinally = (BranchHandle) catchOrFinallyWithoutCast;
-
-			InstructionHandle finallyInstruction = catchOrFinally.getTarget();
-			finallyBlock = this.processInstruction(finallyInstruction, blockNode, processedInstructionIds);	
-			tryBlock.addChildNode(finallyBlock, CFGEdgeType.FINALLY);		
-		}
-
-		for(CodeExceptionGen codeException : exceptionBlocks) {
-			InstructionHandle catchInstruction = codeException.getHandlerPC();
-
-			catchBlock = this.processInstruction(catchInstruction, blockNode, processedInstructionIds);
-			tryBlock.addChildNode(catchBlock, CFGEdgeType.CATCH);
-		}
-
-//		InstructionHandle tryInstruction = exceptionBlocks.get(0).getStartPC();
-//		tryBlock = this.processInstruction(tryInstruction, blockNode, processedInstructionIds);		
-		
-		this.addFinallyChildToTryNodes(tryBlock, finallyBlock);
-
-		//Para diferenciar no equals() e hashCode()
-		blockNode.addInstruction(tryInstruction);
-
 		blockNode.addChildNode(tryBlock, CFGEdgeType.TRY);
-
+		addTryEndNode(endBlock, tryBlock);
+		System.out.println("end");
 	}
 
-	private void addFinallyChildToTryNodes(CFGNode tryBlock, CFGNode finallyBlock) {
-		if(finallyBlock == null || tryBlock.isReference()) {
+}
+	
+	private void addTryEndNode(CFGNode endBlock, CFGNode analysingBlock) {
+		if(analysingBlock == null) {
 			return;
 		}
 		
-		for(IElement childNode : tryBlock.getChildElements()) {
-			this.addFinallyChildToTryNodes((CFGNode) childNode, finallyBlock);
+		for(IElement childNode : analysingBlock.getChildElements()) {
+			addTryEndNode(endBlock, (CFGNode) childNode);
 		}
 		
-		//TODO adicionar nos catch o finally
-		tryBlock.addChildNode(finallyBlock, CFGEdgeType.FINALLY);
+		analysingBlock.addChildNode(endBlock, CFGEdgeType.DEFAULT);
 	}
+
+//	private void addFinallyChildToTryNodes(CFGNode tryBlock, CFGNode finallyBlock) {
+//		if(finallyBlock == null || tryBlock.isReference()) {
+//			return;
+//		}
+//		
+//		for(IElement childNode : tryBlock.getChildElements()) {
+//			this.addFinallyChildToTryNodes((CFGNode) childNode, finallyBlock);
+//			childNode.addChild(endBlock,CFGEdgeType.DEFAULT);
+//		}
+//		
+//		//TODO adicionar nos catch o finally
+//		tryBlock.addChildNode(finallyBlock, CFGEdgeType.FINALLY);
+//	}
 
 	/**
 	 * @param blockNode
@@ -316,9 +312,10 @@ public class CFGProcessor {
 			for(InstructionTargeter targeter : targeters) {
 				if(targeter instanceof CodeExceptionGen) {
 					CodeExceptionGen codeExceptionGen = (CodeExceptionGen) targeter;
-					if(codeExceptionGen.getCatchType() != null) {
-						codeExceptionList.add(codeExceptionGen);
-					}  
+//					if(codeExceptionGen.getCatchType() != null) {
+//						codeExceptionList.add(codeExceptionGen);
+//					}
+					codeExceptionList.add(codeExceptionGen); // finally é um tipo de catch null
 				}
 			}
 		}
