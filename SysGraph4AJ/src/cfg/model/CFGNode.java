@@ -4,6 +4,7 @@ package cfg.model;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,7 +36,7 @@ public class CFGNode implements IElement {
 	
 	private Boolean isReference;
 	
-	private CFGNode parentNode;
+	private List<CFGNode> parentNode = new LinkedList<CFGNode>();
 	
 	private SysMethod sysMethod;
 	
@@ -73,6 +74,7 @@ public class CFGNode implements IElement {
 		if(childNode != null) {
 			this.childNodes.put(childNode, edgeType);
 			childNode.setOwner(this);
+			System.out.println("Child added!");
 		}
 	}
 
@@ -127,11 +129,20 @@ public class CFGNode implements IElement {
 	}
 
 	public IElement getOwner() {
-		return parentNode;
+		if(parentNode != null)
+			return parentNode.get(0);
+		else
+			return null;
+	}
+	
+	public IElement getOwner(int i) {
+		return parentNode.get(i);
 	}
 
 	public void setOwner(IElement parentNode) {
-		this.parentNode = (CFGNode) parentNode;
+		if(this.parentNode == null)
+			this.parentNode = new LinkedList<CFGNode>();
+		this.parentNode.add((CFGNode) parentNode);
 	}
 	
 	@Override
@@ -180,7 +191,7 @@ public class CFGNode implements IElement {
 
 	@Override
 	public void addChild(IElement e) {
-		
+		System.err.println("Filho não adicionado");
 	}
 
 	@Override

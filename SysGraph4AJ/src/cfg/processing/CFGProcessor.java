@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,6 +25,13 @@ import org.apache.bcel.generic.ReturnInstruction;
 import org.apache.bcel.generic.Select;
 import org.apache.bcel.generic.TABLESWITCH;
 import org.apache.bcel.verifier.structurals.ControlFlowGraph;
+import org.objectweb.asm.tree.IntInsnNode;
+
+import sun.org.mozilla.javascript.internal.RefCallable;
+
+import com.sun.org.apache.bcel.internal.generic.InstructionList;
+import com.sun.org.apache.xpath.internal.axes.ChildIterator;
+import com.sun.xml.internal.messaging.saaj.util.FinalArrayList;
 
 import cfg.model.CFGEdgeType;
 import cfg.model.CFGNode;
@@ -106,13 +114,13 @@ public class CFGProcessor {
 
 		do {
 
-			List<CodeExceptionGen> exceptionBlocks = this.getExceptionBlocks(instructionHandle);
-			if(!exceptionBlocks.isEmpty() && !root.isTryStatement()) {
+			List<CodeExceptionGen> exceptionBlocks = this.getExceptionBlocks(instructionHandle, processedInstructionIds);
+			if(exceptionBlocks != null && !exceptionBlocks.isEmpty() && !root.isTryStatement()) {
 				blockNode.setTryStatement(true);
 				this.processTryCatchFinallyStatement(blockNode, processedInstructionIds, exceptionBlocks);
 				instructionHandle = null;
 
-			} else {
+			} else if(instructionHandle != null && exceptionBlocks.isEmpty()){
 
 				boolean alreadyContainsKey = processedInstructionIds.contains(instructionHandle.getPosition());
 				blockNode.addInstruction(instructionHandle);
@@ -127,6 +135,8 @@ public class CFGProcessor {
 					isFirstIteration = false;
 				} 
 				instructionHandle = instructionHandle instanceof BranchHandle ? ((BranchHandle) instructionHandle).getTarget() : instructionHandle.getNext();
+			} else {
+				return null;
 			}
 
 			notNullConditional = instructionHandle != null;
@@ -152,7 +162,7 @@ public class CFGProcessor {
 				childNode.addInstruction(instructionHandle);
 				childNode.setReference(true);
 
-			} else if(!gotoInstructionConditional) { //Se é uma instrução de goto 
+			} else if(!gotoInstructionConditional) { //Se é uma instrução de goto
 				blockNode.addChildNode(this.processInstruction(instructionHandle.getNext(), blockNode, processedInstructionIds), 
 						CFGEdgeType.GOTO);
 
@@ -183,54 +193,180 @@ public class CFGProcessor {
 			Set<Integer> processedInstructionIds,
 			List<CodeExceptionGen> exceptionBlocks) {
 		
-	if(exceptionBlocks.isEmpty()) {
-		return;
-	} else {
-		
-		CFGNode tryBlock = new CFGNode();
-		CFGNode endBlock = new CFGNode();
-		
-		Iterator<CodeExceptionGen> codeExceptionIterator = exceptionBlocks.iterator();
-		
-		while (codeExceptionIterator.hasNext()) {
-			CodeExceptionGen codeException = codeExceptionIterator.next();
-			if(codeException.getCatchType() != null){
-				CFGNode catchBlock = new CFGNode();
-				InstructionHandle catchInstruction = codeException.getHandlerPC();
-				catchBlock.addInstruction(catchInstruction);
-				processedInstructionIds.add(catchInstruction.getPosition());
-				tryBlock.addChildNode(catchBlock, CFGEdgeType.CATCH);
-				catchBlock = this.processInstruction(catchInstruction.getNext(), catchBlock, processedInstructionIds);
-			} else {
-				
-				CFGNode finallyBlock = new CFGNode();
-				InstructionHandle finallyInstruction = codeException.getHandlerPC();
-				finallyBlock.addInstruction(codeException.getHandlerPC());
-				processedInstructionIds.add(finallyInstruction.getPosition());
-				tryBlock.addChildNode(finallyBlock, CFGEdgeType.FINALLY);
-				finallyBlock = this.processInstruction(finallyInstruction.getNext(), finallyBlock, processedInstructionIds);
+		if(exceptionBlocks.isEmpty()) {
+			return;
+		} else {
+			
+			CFGNode tryBlock = new CFGNode();
+			
+			CFGNode finallyBlock = null;
+			List<CFGNode> catchs = new LinkedList<CFGNode>();
+			
+			Iterator<CodeExceptionGen> codeExceptionIterator = exceptionBlocks.iterator();
+			
+			while (codeExceptionIterator.hasNext()) {
+				CodeExceptionGen codeException = codeExceptionIterator.next();
+				if(codeException.getCatchType() != null){
+					CFGNode catchBlock = new CFGNode();
+					
+					if(tryBlock.getInstructions().isEmpty() || catchs.isEmpty()){
+						InstructionHandle initTryBlockInst = codeException.getStartPC();
+						InstructionHandle endTryBlockInst = codeException.getEndPC();
+						
+						for(InstructionHandle i = initTryBlockInst;
+								i.getPosition() <=  endTryBlockInst.getPosition();
+								i = i.getNext()){
+							tryBlock.addInstruction(i);
+						}
+					}
+					
+					if(catchBlock.getInstructions().isEmpty()){
+						InstructionHandle catchInstruction = codeException.getHandlerPC();
+						processedInstructionIds.add(catchInstruction.getPosition());
+						InstructionTargeter[] nextCatch = null;
+						boolean breakSignal = false;
+						for(InstructionHandle i = catchInstruction;
+								!breakSignal && i != null;
+								i = i.getNext()){
+							catchBlock.addInstruction(i);
+							if(i.getNext() != null && i.getNext().getTargeters() != null){
+								nextCatch = i.getNext().getTargeters();
+								for(InstructionTargeter targeter : nextCatch){
+									if(targeter instanceof CodeExceptionGen){
+										breakSignal = true;
+										break;
+									}
+								}
+							}
+						}
+					}
+					catchs.add(catchBlock);
+				} else {
+					
+					finallyBlock = new CFGNode();
+					
+					if(tryBlock.getInstructions().isEmpty()){
+						InstructionHandle initTryBlockInst = codeException.getStartPC();
+						InstructionHandle endTryBlockInst = codeException.getEndPC();
+						for(InstructionHandle i = initTryBlockInst;
+								i.getPosition() <=  endTryBlockInst.getPosition();
+								i = i.getNext()){
+							tryBlock.addInstruction(i);
+						}
+					}
+					
+					if(finallyBlock.getInstructions().isEmpty()){
+						InstructionHandle finallyInstruction = codeException.getHandlerPC();
+						processedInstructionIds.add(finallyInstruction.getPosition());
+						for(InstructionHandle i = finallyInstruction;
+								i != null;
+								i = i.getNext()){
+							finallyBlock.addInstruction(i);
+						}
+					}
+				}
+				codeExceptionIterator.remove();
 			}
-			codeExceptionIterator.remove();
+			
+			// Add instructions inside try nodes
+			for(CFGNode node : catchs){
+				if(node != null && !node.getInstructions().isEmpty() && !node.getInstructions().isEmpty()){
+					processInnerInformation(node, processedInstructionIds);
+					tryBlock.addChildNode(node, CFGEdgeType.CATCH);
+				}
+			}
+			if(finallyBlock != null && !finallyBlock.getInstructions().isEmpty()){
+				processInnerInformation(finallyBlock, processedInstructionIds);
+				tryBlock.addChildNode(finallyBlock, CFGEdgeType.FINALLY);
+			}
+			
+			if(tryBlock != null && !tryBlock.getInstructions().isEmpty()){
+				processInnerInformation(tryBlock, processedInstructionIds);
+			}
+			
+			blockNode.addChildNode(tryBlock, CFGEdgeType.TRY);
+			printBlock(blockNode);
 		}
-		
-		blockNode.addChildNode(tryBlock, CFGEdgeType.TRY);
-		addTryEndNode(endBlock, tryBlock);
-		System.out.println("end");
+
 	}
 
-}
+	private void processInnerInformation(CFGNode root, Set<Integer> processedInstructionIds) {
 	
-	private void addTryEndNode(CFGNode endBlock, CFGNode analysingBlock) {
-		if(analysingBlock == null) {
+		if(root == null){
 			return;
+		} else {
+			List<InstructionHandle> instructionList = root.getInstructions();
+			List<CodeExceptionGen> codeExceptionList = new ArrayList<CodeExceptionGen>();
+			
+			for(InstructionHandle i : instructionList){
+				
+				InstructionTargeter[] targeters = i.getTargeters();
+				
+				if(targeters != null){
+					for(InstructionTargeter targeter : targeters){
+						if(targeter != null && targeter instanceof CodeExceptionGen){
+							CodeExceptionGen codeExceptionGen = (CodeExceptionGen) targeter;
+							if(!processedInstructionIds.contains(codeExceptionGen.getHandlerPC().getPosition()))
+								codeExceptionList.add(codeExceptionGen); // finally é um tipo de catch null
+						}
+					}
+					
+					if(!codeExceptionList.isEmpty()){
+						processTryCatchFinallyStatement(root, processedInstructionIds, codeExceptionList);
+					}
+				}
+				
+				if(!processedInstructionIds.contains(i.getPosition())){
+					if(i.getInstruction() instanceof GotoInstruction){
+						System.out.println("Instruction: " + i.getInstruction() + " is a GotoInstruction");
+						root.addChildNode(new CFGNode(), CFGEdgeType.REFERENCE);
+						processedInstructionIds.add(i.getPosition());
+					} else if(i.getInstruction() instanceof IfInstruction) {
+						System.out.println("Instruction: " + i.getInstruction() + " is a IfInstruction");
+						root.addChildNode(new CFGNode(), CFGEdgeType.REFERENCE);
+						processedInstructionIds.add(i.getPosition());
+					} else if(i.getInstruction() instanceof Select){
+						System.out.println("Instruction: " + i.getInstruction() + " is a Select");
+						processedInstructionIds.add(i.getPosition());
+					} else if(i.getInstruction() instanceof ReturnInstruction){
+						System.out.println("Instruction: " + i.getInstruction() + " is a ReturnInstruction");
+						root.addChildNode(new CFGNode(), CFGEdgeType.REFERENCE);
+						processedInstructionIds.add(i.getPosition());
+					} else {
+						System.out.println("Instruction: " + i.getInstruction() + " is not qualified and has been registered");
+						processedInstructionIds.add(i.getPosition());
+					}
+				} else {
+					System.out.println("Instruction: " + i.getPosition() + " was process already");
+				}
+			}
 		}
-		
-		for(IElement childNode : analysingBlock.getChildElements()) {
-			addTryEndNode(endBlock, (CFGNode) childNode);
-		}
-		
-		analysingBlock.addChildNode(endBlock, CFGEdgeType.DEFAULT);
 	}
+
+	private void regCompInstructions(CFGNode node, Set<Integer> processedInstructionIds){
+		if(node.getChildElements().isEmpty()){
+			for(InstructionHandle inst : node.getInstructions()){
+				if(!processedInstructionIds.contains(inst.getPosition()))
+					processedInstructionIds.add(inst.getPosition());
+			}
+		} else {
+			for(IElement child : node.getChildElements()){
+				CFGNode cfgNode = (CFGNode) child;
+				regCompInstructions(cfgNode, processedInstructionIds);
+			}
+		}
+	}
+
+	private void printBlock(CFGNode node){
+		if(node == null)
+			return;
+		
+		for(IElement child : node.getChildElements()){
+			printBlock((CFGNode)child);
+			System.out.println(child.getChildElements().size() + " pai: " + child.getOwner());
+		}
+	}
+	
 
 //	private void addFinallyChildToTryNodes(CFGNode tryBlock, CFGNode finallyBlock) {
 //		if(finallyBlock == null || tryBlock.isReference()) {
@@ -260,6 +396,7 @@ public class CFGProcessor {
 			Set<Integer> processedInstructionIds) {
 
 		blockNode.addInstruction(instructionHandle);
+		
 		BranchHandle branchHandle = (BranchHandle) instructionHandle;
 		InstructionHandle ifTrueNextInstruction = branchHandle.getTarget();	
 
@@ -289,10 +426,13 @@ public class CFGProcessor {
 		for(InstructionHandle caseInstruction : caseInstructions) {
 			blockNode.addChildNode(this.processInstruction(caseInstruction, blockNode, processedInstructionIds), 
 					CFGEdgeType.CASE);
+			
+			
 		}
 		InstructionHandle defaultCaseInstruction = switchInstruction.getTarget();
 		blockNode.addChildNode(this.processInstruction(defaultCaseInstruction, blockNode, processedInstructionIds), 
 				CFGEdgeType.DEFAULT);
+		
 	}
 
 	/**
@@ -303,22 +443,28 @@ public class CFGProcessor {
 	 * @return 
 	 * 		Instância de {@link CodeExceptionGen} com a respectiva exceçao, mas pode ser um valor nulo
 	 */
-	private List<CodeExceptionGen> getExceptionBlocks(InstructionHandle instructionHandle) {
-		List<CodeExceptionGen> codeExceptionList = new ArrayList<CodeExceptionGen>();
-
-		InstructionTargeter[] targeters = instructionHandle.getTargeters();
-
-		if(targeters != null) {
-			for(InstructionTargeter targeter : targeters) {
-				if(targeter instanceof CodeExceptionGen) {
-					CodeExceptionGen codeExceptionGen = (CodeExceptionGen) targeter;
-//					if(codeExceptionGen.getCatchType() != null) {
-//						codeExceptionList.add(codeExceptionGen);
-//					}
-					codeExceptionList.add(codeExceptionGen); // finally é um tipo de catch null
+	private List<CodeExceptionGen> getExceptionBlocks(InstructionHandle instructionHandle, Set<Integer> processedInstructionIds) {
+		
+		List<CodeExceptionGen> codeExceptionList = null;
+		
+		if(!processedInstructionIds.contains(instructionHandle.getPosition())){
+			codeExceptionList = new ArrayList<CodeExceptionGen>();
+	
+			InstructionTargeter[] targeters = instructionHandle.getTargeters();
+	
+			if(targeters != null) {
+				for(InstructionTargeter targeter : targeters) {
+					if(targeter instanceof CodeExceptionGen) {
+						CodeExceptionGen codeExceptionGen = (CodeExceptionGen) targeter;
+	//					if(codeExceptionGen.getCatchType() != null) {
+	//						codeExceptionList.add(codeExceptionGen);
+	//					}
+						codeExceptionList.add(codeExceptionGen); // finally é um tipo de catch null
+					}
 				}
 			}
 		}
+		
 		return codeExceptionList;
 	}
 
