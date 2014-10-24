@@ -36,7 +36,13 @@ public class CFGNode implements IElement {
 	
 	private Boolean isReference;
 	
-	private List<CFGNode> parentNode = new LinkedList<CFGNode>();
+	private boolean isFinallyNode;
+
+	private boolean isCatchNode;
+	
+	private boolean isEndNode;
+	
+	private List<CFGNode> parentNode;
 	
 	private SysMethod sysMethod;
 	
@@ -45,7 +51,9 @@ public class CFGNode implements IElement {
 		this.childNodes = new HashMap<CFGNode, CFGEdgeType>();
 		this.tryStatement = false;
 		this.isReference = false;
-		this.parentNode = null;
+		this.parentNode = new LinkedList<CFGNode>();
+		this.isCatchNode = false;
+		this.isFinallyNode = false;
 	}
 	
 	/**
@@ -71,11 +79,17 @@ public class CFGNode implements IElement {
 	 * adiciona um nó filho no grafo.
 	 */
 	public void addChildNode(CFGNode childNode, CFGEdgeType edgeType) {
-		if(childNode != null) {
+		if(childNode != null && childNode.getParents().isEmpty()) {
 			this.childNodes.put(childNode, edgeType);
-			childNode.setOwner(this);
-			System.out.println("Child added!");
 		}
+		
+		if(childNode.getChildElements().isEmpty() || childNode.isFinallyNode()){
+			childNode.setEndNode(true);
+		}
+		
+		childNode.setOwner(this);
+		this.setEndNode(false);
+		System.out.println("[CFGNode] Child added!");
 	}
 
 	/**
@@ -129,19 +143,49 @@ public class CFGNode implements IElement {
 	}
 
 	public IElement getOwner() {
-		if(parentNode != null)
+		if(!parentNode.isEmpty())
 			return parentNode.get(0);
 		else
 			return null;
 	}
 	
+	public boolean isFinallyNode() {
+		return isFinallyNode;
+	}
+
+	public void setFinallyNode(boolean isFinallyNode) {
+		this.isFinallyNode = isFinallyNode;
+	}
+
+	public boolean isCatchNode() {
+		return isCatchNode;
+	}
+
+	public boolean isEndNode() {
+		return isEndNode;
+	}
+
+	public void setEndNode(boolean isEndNode) {
+		this.isEndNode = isEndNode;
+	}
+
+	public void setCatchNode(boolean isCatchNode) {
+		this.isCatchNode = isCatchNode;
+	}
+	
 	public IElement getOwner(int i) {
-		return parentNode.get(i);
+		if(parentNode.size() >= i){
+			return parentNode.get(i);
+		} else {
+			return null;
+		}
+	}
+	
+	public List<CFGNode> getParents(){
+		return parentNode;
 	}
 
 	public void setOwner(IElement parentNode) {
-		if(this.parentNode == null)
-			this.parentNode = new LinkedList<CFGNode>();
 		this.parentNode.add((CFGNode) parentNode);
 	}
 	
@@ -200,7 +244,21 @@ public class CFGNode implements IElement {
 	}
 	
 	public CFGEdgeType getChildTypeByNode(CFGNode childNode) {
-		return this.childNodes.get(childNode);
+		CFGEdgeType edge = this.childNodes.get(childNode);
+		
+		if(edge != null){
+			return edge;
+		}
+		else{
+			System.err.println("[CFGNode.getChildTypeByNode] - " + childNode.toString() + 
+					"Aresta não encontrada com método tradicional");
+			for (Map.Entry<CFGNode, CFGEdgeType> entry : this.childNodes.entrySet()){
+			    if (entry.getKey().equals(childNode)) {
+			    	edge = entry.getValue();         
+			    }
+			}
+			return edge;
+		}
 	}
 
 	public boolean hasEnd() {
@@ -212,6 +270,62 @@ public class CFGNode implements IElement {
 					return true;
 				}
 			}
+		}
+		return false;
+	}
+
+	public void getLastChildReference(CFGNode root) {
+		for(IElement node : root.getChildElements()){
+			CFGNode leaf = (CFGNode) node;  
+			this.referenceToLastChild(leaf);
+		}
+	}
+
+	private void referenceToLastChild(CFGNode leaf) {
+		if(leaf.getChildElements().isEmpty() && !leaf.equals(this) && leaf.isEndNode()){
+//			if(leaf.getParents().get(0).getParents().size() > 1 &&
+//					leaf.getParents().get(0).getParents().get(1).equals(leaf)){
+//				return;
+//			} else {
+//				leaf.addChildNode(this, CFGEdgeType.FINALLY);
+//			}
+//			leaf.setEndNode(false);
+			if(leaf.isFinallyNode()){
+				leaf.addChildNode(this, CFGEdgeType.FINALLY);
+			} else {
+				leaf.addChildNode(this, CFGEdgeType.REFERENCE);
+			}
+		} else {
+			for(IElement child : leaf.getChildElements()){
+				CFGNode cfgNode = (CFGNode) child;
+				
+				this.referenceToLastChild(cfgNode);
+				
+			}			
+		}
+	}
+
+	public void referenceToLoopRoot(CFGNode leaf) {
+		if(!containsCatchParent(leaf)){
+			if(leaf.isEndNode()){
+				leaf.addChildNode(this, CFGEdgeType.GOTO);
+			} else{
+				for(IElement child : leaf.getChildElements()){
+					CFGNode cfgNode = (CFGNode) child;
+					this.referenceToLastChild(cfgNode);
+				}
+			}
+		} 		
+	}
+
+	private boolean containsCatchParent(CFGNode leaf) {
+		if(!leaf.getParents().isEmpty()){
+			for(CFGNode parent : leaf.getParents()){
+				if(parent.isCatchNode()){
+					return true;
+				}
+			}
+			containsCatchParent(leaf.getParents().get(0));
 		}
 		return false;
 	}

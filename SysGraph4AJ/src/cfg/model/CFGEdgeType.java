@@ -28,6 +28,12 @@ public enum CFGEdgeType {
 	
 	DEFAULT,
 	
+	IF,
+	
+	SWITCH,
+	
+	LOOP,
+	
 	REFERENCE
 
 }

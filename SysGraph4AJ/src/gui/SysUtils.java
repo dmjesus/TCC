@@ -10,12 +10,15 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.awt.geom.Point2D;
 
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JTextArea;
+import javax.swing.KeyStroke;
 
 import model.IElement;
 import model.SysRoot;
@@ -88,6 +91,12 @@ public class SysUtils {
 			vv.setGraphMouse(gm);
 			JMenuBar menuBar = new JMenuBar();
 			JMenu menu = gm.getModeMenu();
+			
+			KeyStroke f2 = KeyStroke.getKeyStroke(KeyEvent.VK_F2, 0);
+			KeyStroke f3 = KeyStroke.getKeyStroke(KeyEvent.VK_F3, 0);
+			menu.getItem(0).setAccelerator(f2);
+			menu.getItem(1).setAccelerator(f3);
+			
 			menu.setText("Mouse Mode");
 			menu.setIcon(null);
 			menu.setMinimumSize(new Dimension(90,20));

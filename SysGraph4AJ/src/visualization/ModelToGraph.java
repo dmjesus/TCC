@@ -127,7 +127,7 @@ public class ModelToGraph {
 			Vector<IElement> from = et.getFrom();
 			Vector<IElement> to = et.getTo();
 			Vector<Object> edge = et.getEdge();
-			for(int i=0;i<edge.size();i++){
+			for(int i = 0; i < edge.size(); i++){
 				f.addEdge((float)f.getEdgeCount()+1.5f, from.get(i), to.get(i));
 			}
 		}else System.err.println("et==null || f==null");

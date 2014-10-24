@@ -5,6 +5,7 @@ import edu.uci.ics.jung.algorithms.layout.Layout;
 import edu.uci.ics.jung.algorithms.layout.TreeLayout;
 import edu.uci.ics.jung.graph.DelegateForest;
 import edu.uci.ics.jung.graph.DelegateTree;
+import edu.uci.ics.jung.graph.util.EdgeType;
 import edu.uci.ics.jung.visualization.VisualizationViewer;
 import gui.GUIWindowInterface;
 import gui.SysUtils;
@@ -22,7 +23,9 @@ import org.apache.bcel.generic.InstructionHandle;
 
 import visualization.EspecialEdgesTable;
 import visualization.ModelToGraph;
+import cfg.model.CFGEdgeType;
 import cfg.model.CFGNode;
+import cfg.processing.CFGProcessor;
 
 /**
  * Classe responsável pelas operações que relacionam um {@link CFGNode} e alguma interface gráfica.
@@ -139,75 +142,114 @@ public class CFGModelToGraph {
 		if(delegateTree.getVertexCount() == 0) {
 			delegateTree.addVertex(root);
 		}
+		
+		if(root == null){
+			return;
+		}
 
-		Set<CFGNode> childNodes = (Set<CFGNode>) root.getChildElements(); 
-		for(CFGNode childNode : childNodes) {
+		for(IElement node : root.getChildElements()) {
+			CFGNode childNode = (CFGNode) node;
 			CFGEdge edge = new CFGEdge(root, childNode, root.getChildTypeByNode(childNode));
 			childNode.setSysMethod(CFGUIContext.currentAnalysedMethod);
 			
 			if(!childNode.isReference() && !delegateTree.containsVertex(childNode)) {
 				delegateTree.addChild(edge, root, childNode);
 				addCFGNodeAndItsChildrenToTree(childNode, delegateTree);
-			}
+			} 
 		}
 	}
-
-	/**
-	 * 
-	 * @param root
-	 * 		nó raiz
-	 * @param delegateForest
-	 * 		floresta que será atualizada com as arestas remanescentes
-	 */
+	
 	@SuppressWarnings("unchecked")
 	public static void addReferenceEdgesToForest(final CFGNode root, DelegateForest<IElement, Object> delegateForest) {
-		Iterator<CFGNode> childNodes = (Iterator<CFGNode>) root.getChildElements().iterator(); 
-
-		while(childNodes.hasNext()) {
-
-			CFGNode childNode = childNodes.next();
-
-			if(childNode.isReference() && root.getOwner() != null) {
-				CFGNode parentNode = (CFGNode) root.getOwner();
-
-				CFGNode referencedNode = null;
-				boolean referenceFound = false;
-				InstructionHandle instructionToBeReferenced = childNode.getInstructions().get(0);
-
-				do {
-					for(CFGNode childNodesToCheck : parentNode.getChildNodes().keySet()) {
-
-						if(!childNodesToCheck.isReference() 
-								&& !childNodesToCheck.getInstructions().isEmpty() 
-								&& childNodesToCheck.getInstructions().get(0).equals(instructionToBeReferenced)
-								&& !childNodesToCheck.isTryStatement()) {
-							referenceFound = true;
-							referencedNode = childNodesToCheck;
-							break;
-						}
-					}		
-
-					if(!referenceFound) {
-						parentNode = (CFGNode) parentNode.getOwner();
-					}
-
-				} while(parentNode != null && !referenceFound);
-
-				if(referenceFound) {
-					CFGNode parentNodeFromChild = (CFGNode) childNode.getOwner();
-					CFGEdge edge = new CFGEdge(parentNodeFromChild, referencedNode, parentNodeFromChild.getChildTypeByNode(childNode));
-
-					if(!parentNodeFromChild.equals(referencedNode)) {				
-						delegateForest.addEdge(edge, parentNodeFromChild, referencedNode);
-
-					} else {
-						delegateForest.addEdge(edge, parentNodeFromChild, parentNodeFromChild);
+		if(root == null){
+			return;
+		} else {
+//			Iterator<CFGNode> childNodes = (Iterator<CFGNode>) root.getChildElements().iterator();
+			
+			for(IElement node : root.getChildElements()){
+				CFGNode cfgNode = (CFGNode) node;
+				if(cfgNode.getParents().size() > 1){
+					List<CFGNode> parents = cfgNode.getParents();
+					for(CFGNode parent : parents){
+						CFGEdge edge = new CFGEdge(parent, cfgNode, parent.getChildTypeByNode(cfgNode));
+						delegateForest.addEdge(edge, parent, cfgNode);
 					}
 				}
-			} else {
-				addReferenceEdgesToForest(childNode, delegateForest);
+				addReferenceEdgesToForest(cfgNode,delegateForest);
 			}
-
+			
+//			while(childNodes.hasNext()){
+//				CFGNode node = childNodes.next();
+//				if(node.getParents().size() > 1){
+//					List<CFGNode> parents = node.getParents();
+//					for(CFGNode parent : parents){
+//						CFGEdge edge = new CFGEdge(parent, node, parent.getChildTypeByNode(node));
+//						delegateForest.addEdge(edge, parent, node);
+//					}
+//				}
+//				addReferenceEdgesToForest(node,delegateForest);
+//			}
 		}
 	}
+
+//	/**
+//	 * 
+//	 * @param root
+//	 * 		nó raiz
+//	 * @param delegateForest
+//	 * 		floresta que será atualizada com as arestas remanescentes
+//	 */
+//	@SuppressWarnings("unchecked")
+//	public static void addReferenceEdgesToForest(final CFGNode root, DelegateForest<IElement, Object> delegateForest) {
+//		Iterator<CFGNode> childNodes = (Iterator<CFGNode>) root.getChildElements().iterator(); 
+//
+//		while(childNodes.hasNext()) {
+//
+//			CFGNode childNode = childNodes.next();
+//
+//			if(childNode.isReference() && root.getOwner() != null) {
+////			if(childNode.isReference()) {
+//				CFGNode parentNode = (CFGNode) root.getOwner();
+////				CFGNode parentNode = (CFGNode) childNode.getOwner();
+//
+//				CFGNode referencedNode = null;
+//				boolean referenceFound = false;
+//				InstructionHandle instructionToBeReferenced = childNode.getInstructions().get(0);
+//
+//				do {
+//					for(CFGNode childNodesToCheck : parentNode.getChildNodes().keySet()) {
+//
+//						if(!childNodesToCheck.isReference() 
+//								&& !childNodesToCheck.getInstructions().isEmpty() 
+//								&& childNodesToCheck.getInstructions().get(0).equals(instructionToBeReferenced)
+//								&& !childNodesToCheck.isTryStatement()) {
+//							referenceFound = true;
+//							referencedNode = childNodesToCheck;
+//							break;
+//						}
+//					}		
+//
+//					if(!referenceFound) {
+//						parentNode = (CFGNode) parentNode.getOwner();
+//					}
+//
+//				} while(parentNode != null && !referenceFound);
+//
+//				if(referenceFound) {
+//					CFGNode parentNodeFromChild = (CFGNode) childNode.getOwner();
+//					CFGEdge edge = new CFGEdge(parentNodeFromChild, referencedNode, parentNodeFromChild.getChildTypeByNode(childNode));
+//
+//					if(!parentNodeFromChild.equals(referencedNode)) {				
+//						delegateForest.addEdge(edge, parentNodeFromChild, referencedNode);
+//
+//					} else {
+//						delegateForest.addEdge(edge, parentNodeFromChild, parentNodeFromChild);
+//					}
+//				}
+//			} else {
+//				addReferenceEdgesToForest(childNode, delegateForest);
+//			}
+//
+//		}
+//	}
 }
