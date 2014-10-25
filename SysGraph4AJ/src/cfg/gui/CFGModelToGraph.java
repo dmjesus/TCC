@@ -5,27 +5,19 @@ import edu.uci.ics.jung.algorithms.layout.Layout;
 import edu.uci.ics.jung.algorithms.layout.TreeLayout;
 import edu.uci.ics.jung.graph.DelegateForest;
 import edu.uci.ics.jung.graph.DelegateTree;
-import edu.uci.ics.jung.graph.util.EdgeType;
 import edu.uci.ics.jung.visualization.VisualizationViewer;
 import gui.GUIWindowInterface;
 import gui.SysUtils;
 
-import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 import model.IElement;
 import model.SysMethod;
 import model.SysRoot;
-
-import org.apache.bcel.generic.InstructionHandle;
-
 import visualization.EspecialEdgesTable;
 import visualization.ModelToGraph;
-import cfg.model.CFGEdgeType;
 import cfg.model.CFGNode;
-import cfg.processing.CFGProcessor;
 
 /**
  * Classe responsável pelas operações que relacionam um {@link CFGNode} e alguma interface gráfica.
@@ -61,7 +53,7 @@ public class CFGModelToGraph {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public static void reloadMainGraphWithCFGInformations(SysRoot root, GUIWindowInterface windowInterface, IElement targetElement) {
+	public static synchronized void reloadMainGraphWithCFGInformations(SysRoot root, GUIWindowInterface windowInterface, IElement targetElement) {
 		//Obtendo referência para a floresta populada na janela
 		//No momento de analise de classes eu tenho apenas classes e pacotes. Não deveria se ter todo o grafo que representa o código em root já?
 		VisualizationViewer<IElement, Object> visualizationViewer = (VisualizationViewer<IElement, Object>) windowInterface.getCenter();
@@ -153,18 +145,20 @@ public class CFGModelToGraph {
 			childNode.setSysMethod(CFGUIContext.currentAnalysedMethod);
 			
 			if(!childNode.isReference() && !delegateTree.containsVertex(childNode)) {
+//			if(!childNode.isReference()) {
 				delegateTree.addChild(edge, root, childNode);
 				addCFGNodeAndItsChildrenToTree(childNode, delegateTree);
-			} 
+			} else if(delegateTree.containsVertex(childNode)){
+				System.err.println("[CFGModelToGraph] Nó " + childNode + " não adicionado! Já existe esse nó na arvore");
+			}
 		}
 	}
 	
 	@SuppressWarnings("unchecked")
-	public static void addReferenceEdgesToForest(final CFGNode root, DelegateForest<IElement, Object> delegateForest) {
+	public static synchronized void addReferenceEdgesToForest(final CFGNode root, DelegateForest<IElement, Object> delegateForest) {
 		if(root == null){
 			return;
-		} else {
-//			Iterator<CFGNode> childNodes = (Iterator<CFGNode>) root.getChildElements().iterator();
+		} else if(!root.getChildElements().isEmpty()){
 			
 			for(IElement node : root.getChildElements()){
 				CFGNode cfgNode = (CFGNode) node;
@@ -177,18 +171,6 @@ public class CFGModelToGraph {
 				}
 				addReferenceEdgesToForest(cfgNode,delegateForest);
 			}
-			
-//			while(childNodes.hasNext()){
-//				CFGNode node = childNodes.next();
-//				if(node.getParents().size() > 1){
-//					List<CFGNode> parents = node.getParents();
-//					for(CFGNode parent : parents){
-//						CFGEdge edge = new CFGEdge(parent, node, parent.getChildTypeByNode(node));
-//						delegateForest.addEdge(edge, parent, node);
-//					}
-//				}
-//				addReferenceEdgesToForest(node,delegateForest);
-//			}
 		}
 	}
 

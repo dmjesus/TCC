@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import model.IElement;
-
 import org.apache.bcel.generic.BranchHandle;
 import org.apache.bcel.generic.CodeExceptionGen;
 import org.apache.bcel.generic.GotoInstruction;
@@ -20,10 +18,8 @@ import org.apache.bcel.generic.InstructionTargeter;
 import org.apache.bcel.generic.MethodGen;
 import org.apache.bcel.generic.ReturnInstruction;
 import org.apache.bcel.generic.Select;
-import org.apache.bcel.generic.TABLESWITCH;
 import org.apache.bcel.verifier.structurals.ControlFlowGraph;
 
-import sun.awt.CausedFocusEvent;
 import cfg.model.CFGEdgeType;
 import cfg.model.CFGNode;
 
@@ -88,7 +84,7 @@ public class CFGProcessor {
 	 * @param exceptionBlocks
 	 * 		Bloco que contem as instruções alvos do escopo de exceptions
 	 */
-	private void processTryCatchFinallyStatement(CFGNode blockNode, 
+	private synchronized void processTryCatchFinallyStatement(CFGNode blockNode, 
 			Set<Integer> processedInstructionIds,
 			List<CodeExceptionGen> exceptionBlocks) {
 		
@@ -134,7 +130,6 @@ public class CFGProcessor {
 					
 					finallyBlock = new CFGNode();
 					finallyBlock.setFinallyNode(true);
-//					finallyBlock.setEndNode(true);
 					if(tryBlock.getInstructions().isEmpty()){
 						InstructionHandle initTryBlockInst = codeException.getStartPC();
 						InstructionHandle endTryBlockInst = codeException.getEndPC();
@@ -149,7 +144,7 @@ public class CFGProcessor {
 						InstructionHandle finallyInstruction = codeException.getHandlerPC();
 						for(InstructionHandle i = finallyInstruction.getNext();
 								i != null &&
-										!(i.getInstruction() instanceof ReturnInstruction) &&
+//										!(i.getInstruction() instanceof ReturnInstruction) &&
 										!processedInstructionIds.contains(i.getPosition());
 								i = i.getNext()){
 							finallyBlock.addInstruction(i);
@@ -158,21 +153,20 @@ public class CFGProcessor {
 				}
 			}
 			
+			if(finallyBlock != null){
+				removeFinallyBlockInformation(catchs, finallyBlock, processedInstructionIds);
+			}
+			
 			// Add instructions inside try nodes
 			for(CFGNode node : catchs){
 				if(node != null && !node.getInstructions().isEmpty() && !node.getInstructions().isEmpty()){
 					tryBlock.addChildNode(node, CFGEdgeType.CATCH);
-//					node.setEndNode(true);
-					if(finallyBlock != null){
-						removeFinallyBlockInformation(node, finallyBlock, processedInstructionIds);
-					}
 					processInnerInformation(node, null, processedInstructionIds);
 				}
 			}
 			
 			if(finallyBlock != null && !finallyBlock.getInstructions().isEmpty()){
 				tryBlock.addChildNode(finallyBlock, CFGEdgeType.FINALLY);
-//				finallyBlock.setEndNode(true);
 				processInnerInformation(finallyBlock, null, processedInstructionIds);
 			}
 			
@@ -181,7 +175,7 @@ public class CFGProcessor {
 			}
 			
 			if(finallyBlock != null && !finallyBlock.getInstructions().isEmpty()){
-				finallyBlock.getLastChildReference(tryBlock);
+				finallyBlock.referenceToLastChild(tryBlock);
 			}
 			
 			blockNode.addChildNode(tryBlock, CFGEdgeType.TRY);
@@ -189,25 +183,34 @@ public class CFGProcessor {
 
 	}
 
-	private void removeFinallyBlockInformation(CFGNode node,
+	private void removeFinallyBlockInformation(List<CFGNode> catchs,
 			CFGNode finallyBlock, Set<Integer> processedInstructionIds) {
 		
-		if(node.getInstructions().get(node.getInstructions().size() - 1).getInstruction() instanceof GotoInstruction){
-			node.getInstructions().remove(node.getInstructions().size() - 1);
-		}
-		
 		InstructionHandle lastInst1 = finallyBlock.getInstructions().get(0);
-		InstructionHandle lastInst2 = node.getInstructions().get(node.getInstructions().size() - 1);
+		List<InstructionHandle> lastInstList = null;
+		
+		if(!catchs.isEmpty()){
+			lastInstList = new LinkedList<InstructionHandle>();
+			for(int i = 0; i < catchs.size(); i++){
+				lastInstList.add(catchs.get(i).getInstructions().get(catchs.get(i).getInstructions().size()-1));
+			}
+		}
 		
 		while(!lastInst1.getInstruction().toString().contains("athrow")){
 			processedInstructionIds.add(lastInst1.getPosition());
-			processedInstructionIds.add(lastInst2.getPosition());
 			lastInst1 = lastInst1.getNext();
-			lastInst2 = lastInst2.getPrev();
+			
+			if(lastInstList != null && !lastInstList.isEmpty()){
+				for(int i = 0; i < lastInstList.size(); i++){
+					processedInstructionIds.add(lastInstList.get(i).getPosition());
+					lastInstList.set(i, lastInstList.get(i).getPrev());
+				}
+			}
 		}
+		return;
 	}
 
-	private void processInnerInformation(CFGNode root, InstructionHandle instructionHandle,
+	private synchronized void processInnerInformation(CFGNode root, InstructionHandle instructionHandle,
 			Set<Integer> processedInstructionIds) {
 
 		if (root == null) {
@@ -220,14 +223,17 @@ public class CFGProcessor {
 					if (!processedInstructionIds.contains(i.getPosition())) {
 						root.addInstruction(i);
 					} else {
-						System.err.println("[CFGProcessor] The instruction "
-								+ i.getPosition() + " was processed already");
-						System.exit(23);
+						System.err.println("[CFGProcessor] A instruction "
+								+ i.getPosition() + " já foi processada\n");
 					}
 				}
 			}
 
 			List<InstructionHandle> instructionList = root.getInstructions();
+			
+			if(instructionList.isEmpty()){
+				return;
+			}
 			
 			for (InstructionHandle i : instructionList) {
 
@@ -265,53 +271,48 @@ public class CFGProcessor {
 						
 						if (!processedInstructionIds.contains(goToIns.getTarget().getPrev().getPosition())
 							&& goToIns.getTarget().getPosition() > i.getPosition()
-							&& !(goToIns.getTarget().getInstruction() instanceof ReturnInstruction)) {
+							&& !(goToIns.getTarget().getInstruction() instanceof ReturnInstruction)
+							) {
 							
 							/* Tratamento do for, while*/
 							
 							CFGNode whileRoot = new CFGNode();
-//							trueNode.setReference(true);
-							
-							/* Adicionando nos ao no raiz */
-							root.addChildNode(whileRoot, CFGEdgeType.LOOP);
-//							root.setEndNode(false);
-							
-							CFGNode falseNode = new CFGNode();
-							CFGNode whileInternInst = new CFGNode();
-							
-							/* Montagem do whileRoot */
 							whileRoot.addInstruction(i);
 							processedInstructionIds.add(i.getPosition());
-							InstructionHandle whileInst = goToIns.getTarget();
-							while(!processedInstructionIds.contains(whileInst.getPosition())){
-								whileRoot.addInstruction(whileInst);
-								processedInstructionIds.add(whileInst.getPosition());
-								if(whileInst.getInstruction() instanceof IfInstruction){
-									break;
-								}
-								whileInst = whileInst.getNext();
-							}
+							CFGNode whileIntern = new CFGNode();
+							CFGNode whileOut = new CFGNode();
 							
-							/* Montagem da informação dentro do for, while */
-							int outWhileIndex = goToIns.getTarget().getPosition();
-							for(InstructionHandle j = i.getNext();
-									j != null &&
-											j.getPosition() < outWhileIndex &&
-											!processedInstructionIds.contains(j.getPosition()) &&
-											!(j.getInstruction() instanceof IfInstruction);
+							InstructionHandle lastInst = null;
+							for(InstructionHandle j = goToIns.getTarget();
+									!(j instanceof BranchHandle);
 									j = j.getNext()){
-								whileInternInst.addInstruction(j);
+								whileRoot.addInstruction(j);
+								processedInstructionIds.add(j.getPosition());
+								lastInst = j;
 							}
-							whileRoot.addChildNode(whileInternInst, CFGEdgeType.T);
+							lastInst = lastInst.getNext();
+							whileRoot.addInstruction(lastInst);
+							processedInstructionIds.add(lastInst.getPosition());
+							lastInst = lastInst.getNext();
 							
-//							whileInternInst.setEndNode(false);
-							processInnerInformation(whileInternInst, null, processedInstructionIds);
-							whileRoot.referenceToLoopRoot(whileInternInst);
+							whileOut.addInstruction(lastInst);
+							processedInstructionIds.add(lastInst.getPosition());
 							
-							/* Montagem do no de saida do while */
-//							falseNode.setEndNode(true);
-							whileRoot.addChildNode(falseNode, CFGEdgeType.F);
-							falseNode.getLastChildReference(whileRoot);
+							for(InstructionHandle j = i.getNext();
+									j.getPosition() < goToIns.getTarget().getPosition();
+									j = j.getNext()){
+								whileIntern.addInstruction(j);
+							}
+							
+							root.addChildNode(whileRoot, CFGEdgeType.LOOP);
+							whileRoot.addChildNode(whileIntern, CFGEdgeType.T);
+							processInnerInformation(whileIntern, null, processedInstructionIds);
+							whileRoot.referenceToLoopRoot(whileIntern);
+							
+							whileRoot.addChildNode(whileOut, CFGEdgeType.F);
+							
+							processInnerInformation(whileOut, lastInst.getNext(), processedInstructionIds);
+							return;
 							
 						}
 					}  else if (i.getInstruction() instanceof IfInstruction){
@@ -327,62 +328,35 @@ public class CFGProcessor {
 							CFGNode ifNodeRoot = new CFGNode();
 							CFGNode ifNodeTrue = new CFGNode();
 							CFGNode ifNodeFalse = new CFGNode();
-							CFGNode ifNodeLeaf = null; // Se não houver Else esse nó não é necessário
-//							ifNodeRoot.setEndNode(false);
-//							ifNodeTrue.setEndNode(true);
-//							ifNodeFalse.setEndNode(true);
-//							root.setEndNode(false);
 							
-							if(ifInst.getTarget().getPrev().getInstruction() instanceof GotoInstruction){
-								ifNodeLeaf = new CFGNode();
-//								ifNodeLeaf.setEndNode(true);
-								ifNodeRoot.addInstruction(i);
-								ifNodeRoot.addInstruction(ifInst.getTarget().getPrev());
-								processedInstructionIds.add(i.getPosition());
-								
-							} else {
-								ifNodeRoot.addInstruction(i);
-								processedInstructionIds.add(i.getPosition());
+							ifNodeRoot.addInstruction(i);
+							processedInstructionIds.add(i.getPosition());
+							
+							for(InstructionHandle j = i.getNext();
+									j.getPosition() < ifInst.getTarget().getPosition();
+									j = j.getNext()){
+								ifNodeTrue.addInstruction(j);
 							}
 							
-							InstructionHandle ifInterInst = i.getNext();
-							int outIfInterInstIndex = ifInst.getTarget().getPrev().getPosition();
-							
-							if(ifNodeLeaf != null){
-								outIfInterInstIndex = ifInst.getTarget().getPrev().getPrev().getPosition();
-								
-								InstructionHandle elseInterInst = ifInst.getTarget();
-								BranchHandle targetOutElse = (BranchHandle) ifInst.getTarget().getPrev();
-								processedInstructionIds.add(targetOutElse.getPosition());
-								int outElseInterInstIndex = targetOutElse.getTarget().getPosition();
-								
-								while(elseInterInst.getPosition() < outElseInterInstIndex){
-									
-									ifNodeFalse.addInstruction(elseInterInst);
-									
-									elseInterInst = elseInterInst.getNext();
-								}
-							} 
-							
-							while(ifInterInst.getPosition() <= outIfInterInstIndex){
-								
-								ifNodeTrue.addInstruction(ifInterInst);
-								
-								ifInterInst = ifInterInst.getNext();
+							if(ifNodeTrue.getInstructions().get(ifNodeTrue.getInstructions().size()-1).getInstruction() instanceof GotoInstruction){
+								processedInstructionIds.add(ifNodeTrue.getInstructions().get(ifNodeTrue.getInstructions().size()-1).getPosition());
 							}
 							
-							ifNodeRoot.addChildNode(ifNodeTrue, CFGEdgeType.T);
 							processInnerInformation(ifNodeTrue, null, processedInstructionIds);
-							
-							if(ifNodeLeaf != null){
-								ifNodeRoot.addChildNode(ifNodeFalse, CFGEdgeType.F);
-								processInnerInformation(ifNodeFalse, null, processedInstructionIds);
-								ifNodeLeaf.getLastChildReference(ifNodeRoot);
-							} 
-							
+							ifNodeRoot.addChildNode(ifNodeTrue, CFGEdgeType.T);
+							ifNodeRoot.addChildNode(ifNodeFalse, CFGEdgeType.F);
+							ifNodeFalse.referenceToLastChild(ifNodeTrue);
 							root.addChildNode(ifNodeRoot, CFGEdgeType.IF);
 							
+							for(InstructionHandle inst = ifInst.getTarget(); inst != null &&
+									inst.getPosition() <= instructionList.get(instructionList.size()-1).getPosition();
+									inst = inst.getNext()){
+								ifNodeFalse.addInstruction(inst);
+							}
 							
+							processInnerInformation(ifNodeFalse, null, processedInstructionIds);
+							
+							return;
 							
 						/* Tratamento do do */
 							
@@ -390,29 +364,36 @@ public class CFGProcessor {
 							
 							CFGNode doRoot = new CFGNode();
 							CFGNode doInternInst = new CFGNode();
+							CFGNode doOut = new CFGNode();
 							CFGNode doLeaf = new CFGNode();
 							
 							doRoot.addInstruction(i);
-							processedInstructionIds.add(ifInst.getTarget().getPosition());
-							root.addChildNode(doRoot, CFGEdgeType.LOOP);
-//							root.setEndNode(false);
+							doLeaf.addInstruction(i.getPrev());
+							processedInstructionIds.add(i.getPrev().getPosition());
+							processedInstructionIds.add(i.getPosition());
 							
-							int endDoNode = i.getPosition();
-							InstructionHandle doInsternInstruction = ifInst.getTarget();
-							
-							while(doInsternInstruction.getPosition() < endDoNode){
-								
-								doInternInst.addInstruction(doInsternInstruction);
-								
-								doInsternInstruction = doInsternInstruction.getNext();
+							InstructionHandle j = ifInst.getTarget();
+							for(;j.getPosition() < i.getPosition();
+									j = j.getNext()){
+								doInternInst.addInstruction(j);
 							}
-							doRoot.addChildNode(doInternInst, CFGEdgeType.T);
-//							doInternInst.setEndNode(false);
-							doRoot.referenceToLoopRoot(doInternInst);
-							doInternInst.referenceToLoopRoot(doRoot);
-							doInternInst.addChildNode(doLeaf, CFGEdgeType.F);
-							doLeaf.setEndNode(true);
+							
+							root.addChildNode(doRoot, CFGEdgeType.LOOP);
 							processInnerInformation(doInternInst, null, processedInstructionIds);
+							doRoot.addChildNode(doInternInst, CFGEdgeType.T);
+							doLeaf.referenceToLastChild(doInternInst);
+							doRoot.referenceToLoopRoot(doLeaf);
+							doLeaf.addChildNode(doOut, CFGEdgeType.F);
+							
+							for(InstructionHandle inst = j; inst != null &&
+									inst.getPosition() <= instructionList.get(instructionList.size()-1).getPosition();
+									inst = inst.getNext()){
+								doOut.addInstruction(inst);
+							}
+							
+							processInnerInformation(doOut, null, processedInstructionIds);
+							
+							return;
 							
 						}
 							
@@ -426,16 +407,15 @@ public class CFGProcessor {
 						InstructionHandle[] selectInstCases = selectInst.getTargets();
 						
 						CFGNode switchNode = new CFGNode();
+
 						switchNode.addInstruction(i);
 						processedInstructionIds.add(i.getPosition());
 						root.addChildNode(switchNode, CFGEdgeType.SWITCH);
-//						root.setEndNode(false);
 						
 						CFGNode[] cases = new CFGNode[selectInstCases.length];
 						
 						for(int j = 0; j < cases.length; j++){
 							cases[j] = new CFGNode();
-//							switchNode.addChildNode(cases[j], CFGEdgeType.CASE);
 						}
 						
 						for(int k = 1; k < selectInstCases.length; k++){
@@ -453,8 +433,13 @@ public class CFGProcessor {
 						}
 						
 						for(InstructionHandle inst = selectInstCases[selectInstCases.length-1]; 
-								inst.getPosition() < defaultInst.getPosition(); 
+								inst.getPosition() <= defaultInst.getPosition(); 
 								inst = inst.getNext()){
+							if(inst.getPosition() == defaultInst.getPrev().getPosition() && 
+									(inst.getInstruction() instanceof GotoInstruction)){
+								processedInstructionIds.add(inst.getPosition());
+								break;
+							}
 							cases[cases.length-1].addInstruction(inst);
 						}
 						
@@ -466,11 +451,21 @@ public class CFGProcessor {
 						
 						processInnerInformation(cases[cases.length-1], null, processedInstructionIds);
 						
+						for(InstructionHandle inst = defaultInst; inst != null &&
+								inst.getPosition() <= instructionList.get(instructionList.size()-1).getPosition();
+								inst = inst.getNext()){
+							switchNode.addInstruction(inst);
+						}
+						
+						processInnerInformation(switchNode, null, processedInstructionIds);
+						
+						return;
+						
+						
 					}else if (i.getInstruction() instanceof ReturnInstruction) {
-						
-						ReturnInstruction returnInst = (ReturnInstruction) i.getInstruction();
-						System.out.println("[RETURN]Instruction: " + i.getInstruction() + " is a ReturnInstruction");
-						
+						CFGNode returnNode = new CFGNode();
+						returnNode.addInstruction(i);
+						root.addChildNode(returnNode, CFGEdgeType.REFERENCE);
 						processedInstructionIds.add(i.getPosition());
 						
 						return;
@@ -478,11 +473,11 @@ public class CFGProcessor {
 					} else {
 						System.out.println("[UNKNOW]Instruction: "
 										+ "[" + i.getPosition() + "] "
-										+ i.getInstruction() + " is not qualified and has been registered");
+										+ i.getInstruction() + " não é qualificada e foi registrada");
 						processedInstructionIds.add(i.getPosition());
 					}
 				} else {
-					System.out.println("Instruction: " + i.getPosition() + " was process already");
+					System.out.println("Instruction: " + i.getPosition() + " já foi processada");
 				}
 			}
 		}
