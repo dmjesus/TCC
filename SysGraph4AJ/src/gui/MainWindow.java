@@ -9,6 +9,7 @@ import java.awt.event.ActionListener;
 import java.io.File;
 
 import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -55,10 +56,12 @@ public class MainWindow extends JFrame implements GUIWindowInterface {
 		super(name);
 		this.setDefaultCloseOperation(EXIT_ON_CLOSE);
 		this.setVisible(false);
+		
 		//take a good visual for textArea :)
 		this.textArea.setEditable(false);
 		this.textArea.setBackground(Color.BLACK);
 		this.textArea.setForeground(Color.GREEN);
+
 		//make the textArea scrolleable
 		JButton btn = this.createChoosePathButton();
 		this.leftPanel.add(btn);
@@ -68,6 +71,11 @@ public class MainWindow extends JFrame implements GUIWindowInterface {
 		this.leftPanel.setSize(85, 170);
 		this.leftPanel.setLayout(new BoxLayout(this.leftPanel, BoxLayout.PAGE_AXIS));
 		this.setUpContainerProperties();
+		
+		//set jframe icon
+		String path = "./icons/icon_256x256.png";
+		ImageIcon img = new ImageIcon(path);
+		this.setIconImage(img.getImage());
 	}
 	
 	public static MainWindow getInstance() {
@@ -236,6 +244,9 @@ public class MainWindow extends JFrame implements GUIWindowInterface {
 	 */
 	private final class AnalysePathActionListener implements ActionListener {
 		public void actionPerformed(ActionEvent e) {
+			
+			MainWindow.this.path = "C:/Users/Diego/Documents/Eclipse Projects/HelloWorld/bin";
+			
 			//here goes the magic...
 			MainWindow.this.analyse();
 		}

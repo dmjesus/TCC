@@ -97,7 +97,14 @@ public class SysTransformers {
 				if(node.hasEnd()) {
 					return Color.BLACK;
 				}
-				return node.isReference() ? Color.GREEN : node.isTryStatement() ? Color.BLUE : Color.ORANGE;
+				return node.isReference() ? Color.GREEN :
+						node.isTryStatement() ? Color.BLUE :
+							node.isFalseNode() ? Color.LIGHT_GRAY :
+								node.isTrueNode() ? Color.getHSBColor(0.43f, 1.0f, 0.84f) :
+									node.isFinallyNode() ? Color.getHSBColor(0.15f, 1.0f, 0.84f) :
+										node.isCatchNode() ? Color.YELLOW :
+											node.isOutRefNode() ? Color.getHSBColor(0.36f, 1.0f, 0.30f) :
+									Color.ORANGE;
 			}
 			
 			return Color.BLUE;

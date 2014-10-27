@@ -144,8 +144,8 @@ public class CFGModelToGraph {
 			CFGEdge edge = new CFGEdge(root, childNode, root.getChildTypeByNode(childNode));
 			childNode.setSysMethod(CFGUIContext.currentAnalysedMethod);
 			
-			if(!childNode.isReference() && !delegateTree.containsVertex(childNode)) {
-//			if(!childNode.isReference()) {
+//			if(!childNode.isReference() && !delegateTree.containsVertex(childNode)) {
+			if(!delegateTree.containsVertex(childNode)) {
 				delegateTree.addChild(edge, root, childNode);
 				addCFGNodeAndItsChildrenToTree(childNode, delegateTree);
 			} else if(delegateTree.containsVertex(childNode)){
@@ -158,17 +158,18 @@ public class CFGModelToGraph {
 	public static synchronized void addReferenceEdgesToForest(final CFGNode root, DelegateForest<IElement, Object> delegateForest) {
 		if(root == null){
 			return;
-		} else if(!root.getChildElements().isEmpty()){
+		} else{
+			
+			if(root.getParents().size() > 1){
+				List<CFGNode> parents = root.getParents();
+				for(int i = 1; i < parents.size(); i++){
+					CFGEdge edge = new CFGEdge(parents.get(i), root, parents.get(i).getChildTypeByNode(root));
+					delegateForest.addEdge(edge, parents.get(i), root);
+				}
+			}
 			
 			for(IElement node : root.getChildElements()){
 				CFGNode cfgNode = (CFGNode) node;
-				if(cfgNode.getParents().size() > 1){
-					List<CFGNode> parents = cfgNode.getParents();
-					for(CFGNode parent : parents){
-						CFGEdge edge = new CFGEdge(parent, cfgNode, parent.getChildTypeByNode(cfgNode));
-						delegateForest.addEdge(edge, parent, cfgNode);
-					}
-				}
 				addReferenceEdgesToForest(cfgNode,delegateForest);
 			}
 		}

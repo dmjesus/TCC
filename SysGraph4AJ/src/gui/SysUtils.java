@@ -111,8 +111,8 @@ public class SysUtils {
 			Rectangle frame_area = frame.getBounds();
 			double calculatedDeltaY = 120.0d;
 			Point2D ctr = new Point(
-					(int)(frame_area.getX()+frame_area.getWidth()/2), 
-					(int) (frame_area.getY()+calculatedDeltaY )); //create a logical center point X_0+width/2, Y_0+120. 
+					(int)(frame_area.getX() + frame_area.getWidth()/2), 
+					(int) (frame_area.getY() + calculatedDeltaY )); //create a logical center point X_0+width/2, Y_0+120. 
 			//Note: X_0 and Y_0 are both 0, i.e., they are the left top pixel
 			double deltaX = (ctr.getX() - vertexPoint.getX());
 			double deltaY = (ctr.getY() - vertexPoint.getY());

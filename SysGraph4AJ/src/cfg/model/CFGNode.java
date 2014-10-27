@@ -43,6 +43,12 @@ public class CFGNode implements IElement {
 	
 	private boolean isEndNode;
 	
+	private boolean isTrueNode;
+	
+	private boolean isFalseNode;
+	
+	private boolean isOutRefNode;
+	
 	private List<CFGNode> parentNode;
 	
 	private SysMethod sysMethod;
@@ -55,6 +61,8 @@ public class CFGNode implements IElement {
 		this.parentNode = new LinkedList<CFGNode>();
 		this.isCatchNode = false;
 		this.isFinallyNode = false;
+		this.isTrueNode = false;
+		this.isFalseNode = false;
 	}
 	
 	/**
@@ -154,6 +162,30 @@ public class CFGNode implements IElement {
 			return null;
 	}
 	
+	public boolean isTrueNode() {
+		return isTrueNode;
+	}
+
+	public void setTrueNode(boolean isTrueNode) {
+		this.isTrueNode = isTrueNode;
+	}
+
+	public boolean isFalseNode() {
+		return isFalseNode;
+	}
+
+	public boolean isOutRefNode() {
+		return isOutRefNode;
+	}
+
+	public void setOutRefNode(boolean isOutRefNode) {
+		this.isOutRefNode = isOutRefNode;
+	}
+
+	public void setFalseNode(boolean isFalseNode) {
+		this.isFalseNode = isFalseNode;
+	}
+
 	public boolean isFinallyNode() {
 		return isFinallyNode;
 	}
@@ -190,13 +222,21 @@ public class CFGNode implements IElement {
 		return parentNode;
 	}
 
+	public void setParents(List<CFGNode> parentNode) {
+		if(parentNode == null){
+			parentNode = new LinkedList<CFGNode>();
+		}
+		this.parentNode = parentNode;
+	}
+
 	public void setOwner(IElement parentNode) {
 		this.parentNode.add((CFGNode) parentNode);
 	}
 	
 	@Override
 	public String toString() {				
-		return this.instructions.size() == 0 || this.tryStatement ? "[out]" : 
+		return this.instructions.size() == 0 ? "[out]":
+			this.tryStatement ? "[try]" : 
 			new StringBuffer("[").append(this.instructions.get(0).getPosition()).append("]").toString();
 	}
 
@@ -254,16 +294,22 @@ public class CFGNode implements IElement {
 		if(edge != null){
 			return edge;
 		}
-		else{
-			System.err.println("[CFGNode.getChildTypeByNode] - " + childNode.toString() + 
-					"\tAresta não encontrada com método tradicional");
-			for (Map.Entry<CFGNode, CFGEdgeType> entry : this.childNodes.entrySet()){
-			    if (entry.getKey().equals(childNode)) {
-			    	edge = entry.getValue();         
-			    }
-			}
+		
+		for (Map.Entry<CFGNode, CFGEdgeType> entry : this.childNodes.entrySet()){
+		    if (entry.getKey().equals(childNode)) {
+		    	edge = entry.getValue();         
+		    }
+		}
+		
+		if(edge != null){
 			return edge;
 		}
+		
+		System.err.println("[CFGNode.getChildTypeByNode] - " + childNode.toString() + 
+				"\tAresta não encontrada");
+		
+		return null;
+		
 	}
 
 	public boolean hasEnd() {
@@ -279,33 +325,35 @@ public class CFGNode implements IElement {
 		return false;
 	}
 
-	public void referenceToLastChild(CFGNode leaf) {
-		if(leaf.getChildElements().isEmpty() && !leaf.equals(this) && leaf.isEndNode()){
-			if(leaf.isFinallyNode()){
-				leaf.addChildNode(this, CFGEdgeType.FINALLY);
-			} else {
-				leaf.addChildNode(this, CFGEdgeType.REFERENCE);
-			}
+	public void getRefToLeaves(CFGNode leaf, CFGEdgeType edgeType) {
+		if(leaf.getChildElements().isEmpty() && !leaf.equals(this) && (leaf.isEndNode() || leaf.isFinallyNode())){
+			
+			leaf.addChildNode(this, edgeType);
+			
+			System.out.println("[CFGNode] Referencia à folha " + leaf + "capturada para o nó " + this );
+			
 		} else if(leaf.equals(this)){
+			
 			return;
+			
 		} else {
 			for(IElement child : leaf.getChildElements()){
 				CFGNode cfgNode = (CFGNode) child;
 				
-				this.referenceToLastChild(cfgNode);
+				this.getRefToLeaves(cfgNode, edgeType);
 				
 			}			
 		}
 	}
 
-	public void referenceToLoopRoot(CFGNode leaf) {
+	public void getRefToLoopRoot(CFGNode leaf, CFGEdgeType edgeType) {
 		if(!containsCatchParent(leaf)){
 			if(leaf.isEndNode()){
-				leaf.addChildNode(this, CFGEdgeType.GOTO);
+				leaf.addChildNode(this, edgeType);
 			} else{
 				for(IElement child : leaf.getChildElements()){
 					CFGNode cfgNode = (CFGNode) child;
-					this.referenceToLastChild(cfgNode);
+					this.getRefToLeaves(cfgNode, edgeType);
 				}
 			}
 		} 		
