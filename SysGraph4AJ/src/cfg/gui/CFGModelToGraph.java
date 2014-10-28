@@ -163,7 +163,7 @@ public class CFGModelToGraph {
 			if(root.getParents().size() > 1){
 				List<CFGNode> parents = root.getParents();
 				for(int i = 1; i < parents.size(); i++){
-					CFGEdge edge = new CFGEdge(parents.get(i), root, parents.get(i).getChildTypeByNode(root));
+					CFGEdge edge = new CFGEdge(parents.get(i), root, root.getParentEdges().get(parents.get(i).hashCode()));
 					delegateForest.addEdge(edge, parents.get(i), root);
 				}
 			}

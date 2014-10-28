@@ -51,11 +51,14 @@ public class CFGNode implements IElement {
 	
 	private List<CFGNode> parentNode;
 	
+	private HashMap<Integer, CFGEdgeType> parentEdges;
+	
 	private SysMethod sysMethod;
 	
 	public CFGNode() {
 		this.instructions = new ArrayList<InstructionHandle>();
 		this.childNodes = new HashMap<CFGNode, CFGEdgeType>();
+		this.parentEdges = new HashMap<Integer, CFGEdgeType>();
 		this.tryStatement = false;
 		this.isReference = false;
 		this.parentNode = new LinkedList<CFGNode>();
@@ -102,6 +105,9 @@ public class CFGNode implements IElement {
 		}
 		
 		childNode.setOwner(this);
+		childNode.getParentEdges().put(this.hashCode(), edgeType);
+		
+		System.out.println("Aresta" + edgeType + " adicionada ao nó "  + this);
 		this.setEndNode(false);
 	}
 
@@ -176,6 +182,10 @@ public class CFGNode implements IElement {
 
 	public boolean isOutRefNode() {
 		return isOutRefNode;
+	}
+	
+	public HashMap<Integer, CFGEdgeType> getParentEdges() {
+		return parentEdges;
 	}
 
 	public void setOutRefNode(boolean isOutRefNode) {
