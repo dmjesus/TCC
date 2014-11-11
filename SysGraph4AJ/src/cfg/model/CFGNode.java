@@ -33,6 +33,8 @@ public class CFGNode implements IElement {
 	
 	private Map<CFGNode, CFGEdgeType> childNodes;
 	
+	private CFGNode returnNode;
+	
 	private Boolean tryStatement;
 	
 	private Boolean isReference;
@@ -66,6 +68,7 @@ public class CFGNode implements IElement {
 		this.isFinallyNode = false;
 		this.isTrueNode = false;
 		this.isFalseNode = false;
+		this.returnNode = null;
 	}
 	
 	/**
@@ -174,6 +177,14 @@ public class CFGNode implements IElement {
 
 	public void setTrueNode(boolean isTrueNode) {
 		this.isTrueNode = isTrueNode;
+	}
+
+	public CFGNode getReturnNode() {
+		return returnNode;
+	}
+
+	public void setReturnNode(CFGNode returnNode) {
+		this.returnNode = returnNode;
 	}
 
 	public boolean isFalseNode() {

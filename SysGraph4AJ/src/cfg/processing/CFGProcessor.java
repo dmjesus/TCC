@@ -188,6 +188,19 @@ public class CFGProcessor {
 			
 			if(finallyBlock != null && !finallyBlock.getInstructions().isEmpty()){
 				finallyBlock.getRefToLeaves(tryBlock, CFGEdgeType.FINALLY);
+			} else if(finallyBlock == null){
+				CFGNode returnNode = null;
+				for(CFGNode catchNode : catchs){
+					if(catchNode.getReturnNode() != null){
+						returnNode = catchNode.getReturnNode();
+						catchs.remove(catchNode);
+						break;
+					}
+				}
+				
+				if(returnNode != null){
+					returnNode.getRefToLeaves(tryBlock, CFGEdgeType.GOTO);
+				}
 			}
 			
 			blockNode.addChildNode(tryBlock, CFGEdgeType.TRY);
@@ -528,13 +541,23 @@ public class CFGProcessor {
 					}else if (i.getInstruction() instanceof ReturnInstruction) {
 						
 						CFGNode returnNode = new CFGNode();
+						CFGNode catchNode = null;
 
 						returnNode.addInstruction(i);
 						root.getInstructions().remove(i);
 						
 						root.addChildNode(returnNode, CFGEdgeType.REFERENCE);
-						root.setEndNode(true);
-						returnNode.setEndNode(false);
+//						root.setEndNode(true);
+//						returnNode.setEndNode(false);
+						catchNode = root;
+						
+						while(!catchNode.getParents().isEmpty()){
+							if(catchNode.isCatchNode()){
+								catchNode.setReturnNode(returnNode);
+								break;
+							}
+							catchNode = catchNode.getParents().get(0);
+						}
 						
 						processedInstructionIds.add(i.getPosition());
 						

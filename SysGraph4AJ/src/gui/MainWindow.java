@@ -245,7 +245,8 @@ public class MainWindow extends JFrame implements GUIWindowInterface {
 	private final class AnalysePathActionListener implements ActionListener {
 		public void actionPerformed(ActionEvent e) {
 			
-			MainWindow.this.path = "C:/Users/Diego/Documents/Eclipse Projects/HelloWorld/bin";
+//			MainWindow.this.path = "C:/Users/Diego/Documents/Eclipse Projects/HelloWorld/bin";
+			MainWindow.this.path = "/home/dmjesus/Softwares/eclipse-kepler-4.3/workspace/HelloWorld/bin";
 			
 			//here goes the magic...
 			MainWindow.this.analyse();
