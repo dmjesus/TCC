@@ -33,7 +33,7 @@ public class CFGNode implements IElement {
 	
 	private Map<CFGNode, CFGEdgeType> childNodes;
 	
-	private CFGNode returnNode;
+	private CFGNode mergeNode;
 	
 	private Boolean tryStatement;
 	
@@ -42,6 +42,8 @@ public class CFGNode implements IElement {
 	private boolean isFinallyNode;
 
 	private boolean isCatchNode;
+	
+	private boolean isCaseNode;
 	
 	private boolean isEndNode;
 	
@@ -61,14 +63,15 @@ public class CFGNode implements IElement {
 		this.instructions = new ArrayList<InstructionHandle>();
 		this.childNodes = new HashMap<CFGNode, CFGEdgeType>();
 		this.parentEdges = new HashMap<Integer, CFGEdgeType>();
+		this.parentNode = new LinkedList<CFGNode>();
+		this.mergeNode = null;
 		this.tryStatement = false;
 		this.isReference = false;
-		this.parentNode = new LinkedList<CFGNode>();
 		this.isCatchNode = false;
 		this.isFinallyNode = false;
 		this.isTrueNode = false;
 		this.isFalseNode = false;
-		this.returnNode = null;
+		this.isCaseNode = false;
 	}
 	
 	/**
@@ -180,11 +183,11 @@ public class CFGNode implements IElement {
 	}
 
 	public CFGNode getReturnNode() {
-		return returnNode;
+		return mergeNode;
 	}
 
 	public void setReturnNode(CFGNode returnNode) {
-		this.returnNode = returnNode;
+		this.mergeNode = returnNode;
 	}
 
 	public boolean isFalseNode() {
@@ -209,6 +212,14 @@ public class CFGNode implements IElement {
 
 	public boolean isFinallyNode() {
 		return isFinallyNode;
+	}
+
+	public boolean isCaseNode() {
+		return isCaseNode;
+	}
+
+	public void setCaseNode(boolean isCaseNode) {
+		this.isCaseNode = isCaseNode;
 	}
 
 	public void setFinallyNode(boolean isFinallyNode) {
