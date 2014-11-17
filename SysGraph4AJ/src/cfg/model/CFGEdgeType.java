@@ -14,6 +14,8 @@ public enum CFGEdgeType {
 	
 	TRY,
 	
+	OUT_TRY,
+	
 	CATCH,
 	
 	FINALLY,

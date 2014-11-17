@@ -4,6 +4,7 @@ package cfg.model;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,8 @@ public class CFGNode implements IElement {
 	private Boolean isReference;
 	
 	private boolean isFinallyNode;
+	
+	private boolean isOutTryNode;
 
 	private boolean isCatchNode;
 	
@@ -66,6 +69,7 @@ public class CFGNode implements IElement {
 		this.parentNode = new LinkedList<CFGNode>();
 		this.mergeNode = null;
 		this.tryStatement = false;
+		this.isOutTryNode = false;
 		this.isReference = false;
 		this.isCatchNode = false;
 		this.isFinallyNode = false;
@@ -113,7 +117,7 @@ public class CFGNode implements IElement {
 		childNode.setOwner(this);
 		childNode.getParentEdges().put(this.hashCode(), edgeType);
 		
-		System.out.println("Aresta" + edgeType + " adicionada ao nó "  + this);
+		System.out.println("Aresta " + edgeType + " adicionada ao nó "  + this);
 		this.setEndNode(false);
 	}
 
@@ -268,7 +272,7 @@ public class CFGNode implements IElement {
 	@Override
 	public String toString() {				
 		return this.instructions.size() == 0 ? "[out]":
-			this.tryStatement ? "[try]" : 
+			this.tryStatement ? "[try] s:" + this.instructions.get(0).getPosition() + " e:" + this.instructions.get(instructions.size()-1).getPosition(): 
 			new StringBuffer("[").append(this.instructions.get(0).getPosition()).append("]").toString();
 	}
 
@@ -358,10 +362,28 @@ public class CFGNode implements IElement {
 	}
 
 	public void getRefToLeaves(CFGNode leaf, CFGEdgeType edgeType) {
-		if(leaf.getChildElements().isEmpty() && !leaf.equals(this) && (leaf.isEndNode() || leaf.isFinallyNode())){
-			
+		boolean isOutBlock = leaf.isTryStatement() &&
+				leaf.getReturnNode() == null &&
+				edgeType.equals(CFGEdgeType.OUT_TRY);
+		
+		boolean isEndNode = leaf.getChildElements().isEmpty() && !leaf.equals(this) && leaf.isEndNode();
+		
+		boolean isFinallyNode = leaf.isFinallyNode() && !leaf.equals(this) && leaf.isEndNode();
+		
+		if(isOutBlock){
+			boolean noChild = true;
+			Iterator<? extends IElement> iChild = leaf.getChildElements().iterator();
+			while(iChild.hasNext()){
+				CFGNode cfgNode = (CFGNode) iChild.next();
+				noChild = !cfgNode.isCatchNode() ? false : true;
+			}
+			if(noChild){
+				leaf.addChildNode(this, edgeType);
+			}
+		}
+		
+		if(isEndNode || isFinallyNode){
 			leaf.addChildNode(this, edgeType);
-			
 			System.out.println("[CFGNode] Referencia à folha " + leaf + "capturada para o nó " + this );
 			
 		} else if(leaf.equals(this)){
@@ -369,11 +391,11 @@ public class CFGNode implements IElement {
 			return;
 			
 		} else {
-			for(IElement child : leaf.getChildElements()){
-				CFGNode cfgNode = (CFGNode) child;
-				
+			
+			Iterator<? extends IElement> iChild = leaf.getChildElements().iterator();
+			while(iChild.hasNext()){
+				CFGNode cfgNode = (CFGNode) iChild.next();
 				this.getRefToLeaves(cfgNode, edgeType);
-				
 			}			
 		}
 	}
@@ -401,5 +423,13 @@ public class CFGNode implements IElement {
 			containsCatchParent(leaf.getParents().get(0));
 		}
 		return false;
+	}
+
+	public boolean isOutTryNode() {
+		return isOutTryNode;
+	}
+
+	public void setOutTryNode(boolean isOutTryNode) {
+		this.isOutTryNode = isOutTryNode;
 	}
 }

@@ -96,101 +96,153 @@ public class CFGProcessor {
 			return;
 		} else {
 			
-			CFGNode tryBlock = new CFGNode();
-			InstructionHandle endTryBlockTarget = null;
+			CFGNode tryBlock = new CFGNode(); // vertice try
+			CFGNode outTryBlock = new CFGNode(); // vertice de saida do bloco try
+			List<CFGNode> catchs = new LinkedList<CFGNode>(); // vertices catch
+			CFGNode finallyBlock = null; // vertice finally
 			
-			CFGNode finallyBlock = null;
-			List<CFGNode> catchs = new LinkedList<CFGNode>();
+			InstructionHandle lastIndexOfCatchs = null; // referencia para instrucao alvo de saida do vertice try
+			outTryBlock.setOutTryNode(true);
 			
+			/* Processando enderenco das excecoes */
 			for(CodeExceptionGen exception:exceptionBlocks){
 				processedInstructionIds.add(exception.getHandlerPC().getPosition());
 			}
 			
 			for (CodeExceptionGen exception:exceptionBlocks) {
+				
 				CodeExceptionGen codeException = exception;
+				InstructionHandle startPcInstExc = codeException.getStartPC(); // Inicio do bloco catch inclusive
+				InstructionHandle endPcInstExc = codeException.getEndPC().getNext(); // Final do bloco catch inclusive
+				InstructionHandle handlerInstExc = codeException.getHandlerPC().getNext();
+				
 				if(codeException.getCatchType() != null){
 					
-					/*Montagem dos vértices tipo catch*/
-					
-					CFGNode catchBlock = new CFGNode();
-					catchBlock.setCatchNode(true);
-					
 					if(catchs.isEmpty()){
-						InstructionHandle initTryBlockInst = codeException.getStartPC();
-						InstructionHandle endTryBlockInst = codeException.getEndPC();
 						
-						/* Remove informações do vértice try, caso haja alguma 
-						 * A adição de informações nesta parte é prioritária às outras */
+						/* Reset do vértice try e do vértice de saída
+						 * A adicao de informações nesta parte é prioritaria as outras */
 						if(!tryBlock.getInstructions().isEmpty()){
-							tryBlock.getInstructions().removeAll(tryBlock.getInstructions());
+							tryBlock = new CFGNode();
 						}
 						
-						for(InstructionHandle i = initTryBlockInst;
-								endTryBlockInst.getNext() != null &&
-								i.getPosition() <=  endTryBlockInst.getNext().getPosition();
+						for(InstructionHandle i = startPcInstExc;
+								endPcInstExc.getNext() != null &&
+								i.getPosition() <= endPcInstExc.getPosition();
 								i = i.getNext()){
 							if(!processedInstructionIds.contains(i.getPosition())){
 								tryBlock.addInstruction(i);
 							}
 						}
 						
-						if(endTryBlockInst.getNext() != null &&
-								endTryBlockInst.getNext() instanceof BranchHandle){
-							BranchHandle returnInst = (BranchHandle) endTryBlockInst.getNext();
+						if(endPcInstExc != null &&
+								endPcInstExc.getInstruction() instanceof GotoInstruction){
 							
-							endTryBlockTarget = returnInst.getTarget();
-							processedInstructionIds.add(endTryBlockInst.getNext().getPosition());
+							BranchHandle returnInst = (BranchHandle) endPcInstExc;
+							lastIndexOfCatchs = returnInst.getTarget();
+							processedInstructionIds.add(endPcInstExc.getPosition());
+							
+						} else if(!(endPcInstExc.getInstruction() instanceof GotoInstruction)) {
+							
+							System.err.println("[CFGProcessor] A ultima instrucao do bloco try nao era GOTO");
+							System.exit(53);
 						}
 					}
 					
+					/* Montagem dos vértices tipo catch */
+					CFGNode catchBlock = new CFGNode();
+					catchBlock.setCatchNode(true);
+					
 					/* Adiciona informações ao vértice tipo catch */
 					if(catchBlock.getInstructions().isEmpty()){
-						InstructionHandle catchInstruction = codeException.getHandlerPC();
-						
-						InstructionHandle i = catchInstruction.getNext();
+
+						InstructionHandle i = handlerInstExc;
 						for(;i != null && !processedInstructionIds.contains(i.getPosition()) &&
-							 i.getPosition() < endTryBlockTarget.getPosition() && 
+							 i.getPosition() < lastIndexOfCatchs.getPosition() && 
 							 !(i.getInstruction() instanceof ReturnInstruction);
 							 i = i.getNext()){
 							catchBlock.addInstruction(i);
 						}
 						
 						if(i.getPrev().getInstruction() instanceof GotoInstruction){
+							BranchHandle goToInst = (BranchHandle) i.getPrev();
+							if(outTryBlock.getInstructions().isEmpty()){
+								
+								outTryBlock.addInstruction(goToInst.getTarget().getPrev());
+								processedInstructionIds.add(goToInst.getTarget().getPrev().getPosition());
+								for(InstructionHandle j = goToInst.getTarget();
+										j != null &&
+										!processedInstructionIds.contains(j.getPosition());
+										j = j.getNext()){
+									outTryBlock.addInstruction(j);
+								}
+								
+							}
 							processedInstructionIds.add(i.getPrev().getPosition());
+						} else {
+							outTryBlock.addInstruction(i.getPrev());
+							processedInstructionIds.add(i.getPrev().getPosition());
+							for(InstructionHandle j = i;
+									j != null &&
+									!processedInstructionIds.contains(j.getPosition());
+									j = j.getNext()){
+								outTryBlock.addInstruction(j);
+							}
 						}
 					}
 					
 					/* Adiciona vértice a lista de vértices tipo catch */
 					catchs.add(catchBlock);
+					
 				} else {
 					
 					/* Montagem do vértice tipo finally */
 					
 					finallyBlock = new CFGNode();
 					finallyBlock.setFinallyNode(true);
+					int sizeFinallyBlock = 0;
 					
 					/* Adiciona informações no bloco try caso nenhum catch o tenha feito ainda */
 					if(tryBlock.getInstructions().isEmpty()){
-						InstructionHandle initTryBlockInst = codeException.getStartPC();
-						InstructionHandle endTryBlockInst = codeException.getEndPC();
 						
-						for(InstructionHandle i = initTryBlockInst;
-								endTryBlockInst.getNext() != null &&
-								i.getPosition() <=  endTryBlockInst.getNext().getPosition();
+						for(InstructionHandle i = startPcInstExc;
+								i.getNext() != null &&
+								i.getPosition() <  endPcInstExc.getPosition();
 								i = i.getNext()){
 							tryBlock.addInstruction(i);
 						}
+						
+						if(endPcInstExc.getInstruction() instanceof GotoInstruction){
+							processedInstructionIds.add(endPcInstExc.getPosition());
+						} 
 					}
 					
 					/* Adiciona informações ao bloco finally */
 					if(finallyBlock.getInstructions().isEmpty()){
-						InstructionHandle finallyInstruction = codeException.getHandlerPC();
-						for(InstructionHandle i = finallyInstruction.getNext();
-								i != null &&
-//										!(i.getInstruction() instanceof ReturnInstruction) &&
-										!processedInstructionIds.contains(i.getPosition());
-								i = i.getNext()){
+						InstructionHandle i = handlerInstExc.getNext();
+						for(;i != null &&
+							 !(i.getInstruction().toString().contains("athrow")) &&
+							 !processedInstructionIds.contains(i.getPosition());
+							 i = i.getNext()){
+							
 							finallyBlock.addInstruction(i);
+							sizeFinallyBlock++;
+						}
+						
+						for(int j = 0; j < sizeFinallyBlock + 1 && i != null; j++){
+							processedInstructionIds.add(i.getPosition());
+							i = i.getNext();
+						}
+						
+						if(i.getPrev() != null){
+							outTryBlock.addInstruction(i.getPrev());
+							processedInstructionIds.add(i.getPrev().getPosition());
+							for(InstructionHandle j = i;
+									j != null &&
+									!processedInstructionIds.contains(j.getPosition());
+									j = j.getNext()){
+								outTryBlock.addInstruction(j);
+							}
 						}
 					}
 				}
@@ -200,7 +252,7 @@ public class CFGProcessor {
 			if(finallyBlock != null){
 				removeFinallyBlockInformation(catchs, finallyBlock, processedInstructionIds);
 			}
-			
+			System.out.println("nada");
 			/* Processamento de instruções dentro dos vértices tipo catch */
 			for(CFGNode node : catchs){
 				if(node != null && !node.getInstructions().isEmpty() && !node.getInstructions().isEmpty()){
@@ -209,35 +261,31 @@ public class CFGProcessor {
 				}
 			}
 			
-			/* Processamento de instruções dentro dos vértices tipo finally */
-			if(finallyBlock != null && !finallyBlock.getInstructions().isEmpty()){
-				tryBlock.addChildNode(finallyBlock, CFGEdgeType.FINALLY);
-				InstructionHandle inst = finallyBlock.getInstructions().get(finallyBlock.getInstructions().size()-1);
-				processInnerInformation(finallyBlock, inst, processedInstructionIds);
-			}
-			
 			/* Processamento de instruções dentro dos vértices tipo try */
 			if(tryBlock != null && !tryBlock.getInstructions().isEmpty()){
 				tryBlock.setTryStatement(true);
 				processInnerInformation(tryBlock, null, processedInstructionIds);
-				
-				if(finallyBlock == null && endTryBlockTarget != null){
-					CFGNode endNode = getEndNode(tryBlock);
-					processInnerInformation(endNode, endTryBlockTarget, processedInstructionIds);
-				}
 			} 
 			
-			/* Adiciona arestas de retorno para o vértice tipo finally caso ele exista */
+			/* Processamento de instruções dentro dos vértices tipo finally */
 			if(finallyBlock != null && !finallyBlock.getInstructions().isEmpty()){
+				tryBlock.addChildNode(finallyBlock, CFGEdgeType.FINALLY);
+				processInnerInformation(finallyBlock, null, processedInstructionIds);
+				
 				finallyBlock.getRefToLeaves(tryBlock, CFGEdgeType.FINALLY);
-			} else if(finallyBlock == null){
+				outTryBlock.getRefToLeaves(finallyBlock, CFGEdgeType.OUT_TRY);
+				
+			} else if (finallyBlock == null){
 				/* Adiciona arestas de retorno para o vértice de saída,
 				 * pois não existe vértice finally */
-				mergeNodes(tryBlock);
+				outTryBlock.getRefToLeaves(tryBlock, CFGEdgeType.OUT_TRY);
 			}
+			
+			processInnerInformation(outTryBlock, null, processedInstructionIds);
 			
 			/* Adiciona o vértice tipo try no nó raiz inicial*/
 			blockNode.addChildNode(tryBlock, CFGEdgeType.TRY);
+			
 		}
 
 	}
@@ -270,9 +318,7 @@ public class CFGProcessor {
 		} else {
 			System.err.println("[CFGProcessor] Cuidado, argumento em mergeNode não tem filhos");
 		}
-		
-		
-		
+
 	}
 
 	private synchronized CFGNode getEndNode(CFGNode mergeNode) {
@@ -296,27 +342,16 @@ public class CFGProcessor {
 	private void removeFinallyBlockInformation(List<CFGNode> catchs,
 			CFGNode finallyBlock, Set<Integer> processedInstructionIds) {
 		
-		InstructionHandle lastInst1 = finallyBlock.getInstructions().get(0);
-		List<InstructionHandle> lastInstList = null;
-		
-		if(!catchs.isEmpty()){
-			lastInstList = new LinkedList<InstructionHandle>();
-			for(int i = 0; i < catchs.size(); i++){
-				lastInstList.add(catchs.get(i).getInstructions().get(catchs.get(i).getInstructions().size()-1));
-			}
-		}
-		
-		while(!lastInst1.getInstruction().toString().contains("athrow")){
-			processedInstructionIds.add(lastInst1.getPosition());
-			lastInst1 = lastInst1.getNext();
+		if(finallyBlock != null){
+			int finallyBlockInstSize = finallyBlock.getInstructions().size();
 			
-			if(lastInstList != null && !lastInstList.isEmpty()){
-				for(int i = 0; i < lastInstList.size(); i++){
-					processedInstructionIds.add(lastInstList.get(i).getPosition());
-					lastInstList.set(i, lastInstList.get(i).getPrev());
+			for(int i = finallyBlockInstSize; i >= 0; i--){
+				for(CFGNode catchNode : catchs){
+					catchNode.getInstructions().remove(catchNode.getInstructions().size()-1);
 				}
 			}
 		}
+		
 		return;
 	}
 
@@ -429,6 +464,7 @@ public class CFGProcessor {
 					}
 					if (!codeExceptionList.isEmpty()) {
 						processTryCatchFinallyStatement(root, processedInstructionIds, codeExceptionList);
+						return;
 					}
 				}
 
