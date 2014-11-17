@@ -290,55 +290,6 @@ public class CFGProcessor {
 
 	}
 
-	private void mergeNodes(CFGNode node) {
-		CFGNode mergeNode = null;
-		LinkedList<CFGNode> nodesToMerge = new LinkedList<CFGNode>();
-		
-		if(node.getChildElements().size() > 0){
-			for(IElement child : node.getChildElements()){
-				CFGNode cfgNode = (CFGNode) child;
-				if(!cfgNode.isCaseNode() && !cfgNode.isCatchNode()){
-					mergeNode = cfgNode;
-				} else {
-					nodesToMerge.add(cfgNode);
-				}
-			}
-			
-			if(mergeNode == null){
-				return;
-			} else {
-				
-				mergeNode = getEndNode(mergeNode);
-				
-				for(int i = 0; i < nodesToMerge.size(); i++){
-					nodesToMerge.set(i, getEndNode(nodesToMerge.get(i)));
-					mergeNode.getParents().add(nodesToMerge.get(i));
-				}
-			}
-		} else {
-			System.err.println("[CFGProcessor] Cuidado, argumento em mergeNode não tem filhos");
-		}
-
-	}
-
-	private synchronized CFGNode getEndNode(CFGNode mergeNode) {
-		if(mergeNode == null){
-			return null;
-		}
-		
-		if(mergeNode.getChildElements() != null && mergeNode.getChildElements().size() > 0){
-			for(IElement child : mergeNode.getChildElements()){
-				CFGNode returnNode = getEndNode((CFGNode) child);
-				mergeNode = (returnNode != null &&
-						returnNode.isEndNode() &&
-						!returnNode.isCatchNode() &&
-						!returnNode.isCaseNode() ? returnNode : mergeNode);
-			}
-		} 
-		
-		return mergeNode;
-	}
-
 	private void removeFinallyBlockInformation(List<CFGNode> catchs,
 			CFGNode finallyBlock, Set<Integer> processedInstructionIds) {
 		
@@ -604,6 +555,9 @@ public class CFGProcessor {
 						InstructionHandle[] selectInstCases = selectInst.getTargets();
 						
 						CFGNode switchNode = new CFGNode();
+						CFGNode switchOutNode = new CFGNode();
+						switchNode.setSwitchNode(true);
+						switchOutNode.setOutSwitchNode(true);
 
 						switchNode.addInstruction(i);
 						processedInstructionIds.add(i.getPosition());
@@ -652,11 +606,11 @@ public class CFGProcessor {
 						for(InstructionHandle inst = defaultInst; inst != null &&
 								inst.getPosition() <= instructionList.get(instructionList.size()-1).getPosition();
 								inst = inst.getNext()){
-							switchNode.addInstruction(inst);
+							switchOutNode.addInstruction(inst);
 						}
-						
-						processInnerInformation(switchNode, null, processedInstructionIds);
-						mergeNodes(switchNode);
+						switchNode.addChildNode(switchOutNode, CFGEdgeType.OUT_SW);
+						processInnerInformation(switchOutNode, null, processedInstructionIds);
+						switchOutNode.getRefToLeaves(switchNode, CFGEdgeType.OUT_SW);
 						return;
 						
 						
@@ -668,7 +622,7 @@ public class CFGProcessor {
 						returnNode.addInstruction(i);
 						root.getInstructions().remove(i);
 						
-						root.addChildNode(returnNode, CFGEdgeType.REFERENCE);
+						root.addChildNode(returnNode, CFGEdgeType.RETURN);
 						
 						processedInstructionIds.add(i.getPosition());
 						

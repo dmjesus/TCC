@@ -31,36 +31,24 @@ import cfg.processing.CFGProcessor;
 public class CFGNode implements IElement {
 	
 	private List<InstructionHandle> instructions;
-	
 	private Map<CFGNode, CFGEdgeType> childNodes;
-	
+	private List<CFGNode> parentNode;
+	private HashMap<Integer, CFGEdgeType> parentEdges;
+	private SysMethod sysMethod;
 	private CFGNode mergeNode;
 	
 	private Boolean tryStatement;
-	
 	private Boolean isReference;
-	
 	private boolean isFinallyNode;
-	
 	private boolean isOutTryNode;
-
+	private boolean isOutSwitchNode;
+	private boolean isSwitchNode;
 	private boolean isCatchNode;
-	
 	private boolean isCaseNode;
-	
 	private boolean isEndNode;
-	
 	private boolean isTrueNode;
-	
 	private boolean isFalseNode;
-	
 	private boolean isOutRefNode;
-	
-	private List<CFGNode> parentNode;
-	
-	private HashMap<Integer, CFGEdgeType> parentEdges;
-	
-	private SysMethod sysMethod;
 	
 	public CFGNode() {
 		this.instructions = new ArrayList<InstructionHandle>();
@@ -76,6 +64,8 @@ public class CFGNode implements IElement {
 		this.isTrueNode = false;
 		this.isFalseNode = false;
 		this.isCaseNode = false;
+		this.isOutSwitchNode = false;
+		this.isSwitchNode = false;
 	}
 	
 	/**
@@ -233,6 +223,30 @@ public class CFGNode implements IElement {
 	public boolean isCatchNode() {
 		return isCatchNode;
 	}
+	
+	public boolean isOutTryNode() {
+		return isOutTryNode;
+	}
+
+	public void setOutTryNode(boolean isOutTryNode) {
+		this.isOutTryNode = isOutTryNode;
+	}
+
+	public boolean isOutSwitchNode() {
+		return isOutSwitchNode;
+	}
+
+	public void setOutSwitchNode(boolean isOutSwitchNode) {
+		this.isOutSwitchNode = isOutSwitchNode;
+	}
+
+	public boolean isSwitchNode() {
+		return isSwitchNode;
+	}
+
+	public void setSwitchNode(boolean isSwitchNode) {
+		this.isSwitchNode = isSwitchNode;
+	}
 
 	public boolean isEndNode() {
 		return isEndNode;
@@ -362,7 +376,7 @@ public class CFGNode implements IElement {
 	}
 
 	public void getRefToLeaves(CFGNode leaf, CFGEdgeType edgeType) {
-		boolean isOutBlock = leaf.isTryStatement() &&
+		boolean isOutTryBlock = leaf.isTryStatement() &&
 				leaf.getReturnNode() == null &&
 				edgeType.equals(CFGEdgeType.OUT_TRY);
 		
@@ -370,7 +384,7 @@ public class CFGNode implements IElement {
 		
 		boolean isFinallyNode = leaf.isFinallyNode() && !leaf.equals(this) && leaf.isEndNode();
 		
-		if(isOutBlock){
+		if(isOutTryBlock){
 			boolean noChild = true;
 			Iterator<? extends IElement> iChild = leaf.getChildElements().iterator();
 			while(iChild.hasNext()){
@@ -423,13 +437,5 @@ public class CFGNode implements IElement {
 			containsCatchParent(leaf.getParents().get(0));
 		}
 		return false;
-	}
-
-	public boolean isOutTryNode() {
-		return isOutTryNode;
-	}
-
-	public void setOutTryNode(boolean isOutTryNode) {
-		this.isOutTryNode = isOutTryNode;
 	}
 }
