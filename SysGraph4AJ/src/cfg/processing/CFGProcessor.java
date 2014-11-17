@@ -453,8 +453,8 @@ public class CFGProcessor {
 							processedInstructionIds.add(lastInst.getPosition());
 							lastInst = lastInst.getNext();
 							
-							whileOut.addInstruction(lastInst);
-							processedInstructionIds.add(lastInst.getPosition());
+//							whileOut.addInstruction(lastInst);
+//							processedInstructionIds.add(lastInst.getPosition());
 							
 							for(InstructionHandle j = i.getNext();
 									j.getPosition() < goToIns.getTarget().getPosition() ||
@@ -617,13 +617,9 @@ public class CFGProcessor {
 					}else if (i.getInstruction() instanceof ReturnInstruction) {
 						
 						CFGNode returnNode = new CFGNode();
-
-
 						returnNode.addInstruction(i);
 						root.getInstructions().remove(i);
-						
 						root.addChildNode(returnNode, CFGEdgeType.RETURN);
-						
 						processedInstructionIds.add(i.getPosition());
 						
 						return;

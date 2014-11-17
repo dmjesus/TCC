@@ -100,7 +100,7 @@ public class CFGNode implements IElement {
 			}
 		}
 		
-		if(childNode.getChildElements().isEmpty() || childNode.isFinallyNode()){
+		if(childNode.getChildElements().isEmpty()){
 			childNode.setEndNode(true);
 		}
 		
@@ -385,18 +385,20 @@ public class CFGNode implements IElement {
 		boolean isFinallyNode = leaf.isFinallyNode() && !leaf.equals(this) && leaf.isEndNode();
 		
 		if(isOutTryBlock){
-			boolean noChild = true;
+			boolean noChild = leaf.isEndNode() ||
+					!leaf.isFinallyNode() ||
+					leaf.getChildElements().isEmpty();
 			Iterator<? extends IElement> iChild = leaf.getChildElements().iterator();
 			while(iChild.hasNext()){
 				CFGNode cfgNode = (CFGNode) iChild.next();
-				noChild = !cfgNode.isCatchNode() ? false : true;
+				noChild = !cfgNode.isCatchNode() ? false : noChild;
 			}
 			if(noChild){
 				leaf.addChildNode(this, edgeType);
 			}
 		}
 		
-		if(isEndNode || isFinallyNode){
+		if((isEndNode || isFinallyNode) && !isOutTryBlock){
 			leaf.addChildNode(this, edgeType);
 			System.out.println("[CFGNode] Referencia à folha " + leaf + "capturada para o nó " + this );
 			
