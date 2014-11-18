@@ -6,8 +6,11 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 
+import javax.imageio.ImageIO;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -74,8 +77,19 @@ public class MainWindow extends JFrame implements GUIWindowInterface {
 		
 		//set jframe icon
 		String path = "./icons/icon_256x256.png";
+		
+		/* Utilizar essa configuração para execução dentro do eclipse */
 		ImageIcon img = new ImageIcon(path);
 		this.setIconImage(img.getImage());
+		
+		/*Utilizar essa configuração para geração de jar file com icone.*/		
+//		BufferedImage image = null;
+//		try {
+//			image = ImageIO.read(this.getClass().getResource("/icon_256x256.png"));
+//			this.setIconImage(image); 
+//		} catch (IOException e) {
+//			e.getMessage();
+//		}
 	}
 	
 	public static MainWindow getInstance() {

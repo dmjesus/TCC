@@ -1,17 +1,12 @@
 package cfg.processing;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.swing.JOptionPane;
-
-import model.IElement;
 
 import org.apache.bcel.generic.BranchHandle;
 import org.apache.bcel.generic.CodeExceptionGen;
@@ -61,9 +56,6 @@ public class CFGProcessor {
 	 * 		Nó raiz com todas as instruções armazenadas em seu grafo
 	 */
 	private CFGNode processInstruction(InstructionHandle instruction) {
-//		Map<Integer, Set<CFGNode>> instructionsHashTable = new HashMap<Integer, Set<CFGNode>>(); 
-//		Map<Integer, Integer> instructionsDeepLevel = new HashMap<Integer, Integer>(); 
-//		Set<Integer> referencedInstructionPositions = new HashSet<Integer>(); 
 		Set<Integer> processedInstructionIds = new HashSet<Integer>();
 		
 		CFGNode root = new CFGNode();
@@ -72,9 +64,6 @@ public class CFGProcessor {
 		if(root.getChildElements().isEmpty()){
 			System.err.println("[ERROR - CFGProcessos] - Root without childs");
 		}
-
-//		this.updateHashMaps(root, instructionsHashTable, instructionsDeepLevel, referencedInstructionPositions, 0);
-//		this.updateReferences(instructionsHashTable, instructionsDeepLevel, referencedInstructionPositions);
 
 		return root;
 	}
@@ -503,7 +492,7 @@ public class CFGProcessor {
 							
 							ifNodeRoot.addInstruction(i);
 							processedInstructionIds.add(i.getPosition());
-							processedInstructionIds.add(ifInst.getTarget().getPosition());
+							//processedInstructionIds.add(ifInst.getTarget().getPosition()); // instrução possivelmente desnecessária depois da ultima alteração
 							
 							for(InstructionHandle j = i.getNext();
 									j.getPosition() < ifInst.getTarget().getPosition();
@@ -511,6 +500,9 @@ public class CFGProcessor {
 								ifNodeTrue.addInstruction(j);
 							}
 							
+							/* Em condições de if com else a última instrução é um goto.
+							 * Para que esse goto não seja confundido com um laço a instrução é marcada
+							 * como processada.*/
 							if(ifNodeTrue.getInstructions().get(ifNodeTrue.getInstructions().size()-1).getInstruction() instanceof GotoInstruction){
 								processedInstructionIds.add(ifNodeTrue.getInstructions().get(ifNodeTrue.getInstructions().size()-1).getPosition());
 							}
@@ -534,8 +526,6 @@ public class CFGProcessor {
 							processInnerInformation(ifNodeFalse, null, processedInstructionIds);
 							
 							return;
-							
-						
 							
 						} else if(ifInst.getTarget().getPosition() < i.getPosition()){
 							
@@ -618,7 +608,7 @@ public class CFGProcessor {
 						
 						CFGNode returnNode = new CFGNode();
 						returnNode.addInstruction(i);
-						root.getInstructions().remove(i);
+						root.getInstructions().remove(i);						
 						root.addChildNode(returnNode, CFGEdgeType.RETURN);
 						processedInstructionIds.add(i.getPosition());
 						
@@ -658,174 +648,5 @@ public class CFGProcessor {
 		}
 		
 		return -1;
-	}
-
-	/**
-	 * Obtém uma exceção a ser tratada em um block try/catch
-	 * 
-	 * @param instructionHandle 
-	 * 		Uma instrução representada pela classe {@link InstructionHandle}
-	 * @return 
-	 * 		Instância de {@link CodeExceptionGen} com a respectiva exceçao, mas pode ser um valor nulo
-	 */
-	private List<CodeExceptionGen> getExceptionBlocks(InstructionHandle instructionHandle, Set<Integer> processedInstructionIds) {
-		
-		List<CodeExceptionGen> codeExceptionList = null;
-		
-		if(!processedInstructionIds.contains(instructionHandle.getPosition())){
-			codeExceptionList = new ArrayList<CodeExceptionGen>();
-	
-			InstructionTargeter[] targeters = instructionHandle.getTargeters();
-	
-			if(targeters != null) {
-				for(InstructionTargeter targeter : targeters) {
-					if(targeter instanceof CodeExceptionGen) {
-						CodeExceptionGen codeExceptionGen = (CodeExceptionGen) targeter;
-						codeExceptionList.add(codeExceptionGen); // finally é um tipo de catch null
-					}
-				}
-			}
-		}
-		
-		return codeExceptionList;
-	}
-
-
-	/**
-	 * Atualiza as informações das hashtables para a atualização das referências posteriormente.
-	 * 
-	 * @param root
-	 * 		Nó raiz a ser referenciado.
-	 * @param instructionsHashTable
-	 * 		Mapa onde a chave é o nível da árvore e o valor é a lista de nós de do nível da árvore de {@link CFGNode}
-	 * @param instructionsDeepLevel
-	 * 		Mapa onde a chave é a posição da {@link InstructionHandle} e o valor é o nível mais próximo da raiz em que se encontra essa instrução.
-	 * @param referencedInstructionPositions
-	 * 		Lista de todas as instruções que contém referências no grafo.
-	 * @param currentLevel
-	 * 		Nível atual da árvore
-	 */
-	@SuppressWarnings("unchecked")
-	private void updateHashMaps(CFGNode root,
-			Map<Integer, Set<CFGNode>> instructionsHashTable,
-			Map<Integer, Integer> instructionsDeepLevel,
-			Set<Integer> referencedInstructionPositions, 
-			int currentLevel) {
-		
-		/* A primeira iteração todos os argumentos não tem informações, exceto o root*/
-
-		//updating instructionsHashTable
-		Set<CFGNode> nodeList = instructionsHashTable.get(currentLevel);
-
-		if(nodeList == null) {
-			nodeList = new HashSet<CFGNode>();
-			instructionsHashTable.put(currentLevel, nodeList);
-		}
-
-		nodeList.add(root);
-
-		List<InstructionHandle> instructions = root.getInstructions();
-
-		if(!instructions.isEmpty() && !root.isTryStatement()) {
-
-			//updating instructionsDeepLevel
-			InstructionHandle instructionHandle = instructions.get(0);
-			if(instructionHandle != null) {
-				Integer deepLevel = instructionsDeepLevel.get(instructionHandle.getPosition());
-				if(deepLevel == null || deepLevel > currentLevel) {
-					instructionsDeepLevel.put(instructionHandle.getPosition(), currentLevel);
-				}
-			}
-
-			//updating referencedInstructionPositions
-			if(root.isReference()) {
-				referencedInstructionPositions.add(instructionHandle.getPosition());
-			}
-		}
-
-		//updating childNodes
-		Set<CFGNode> childNodes = (Set<CFGNode>) root.getChildElements();
-		for(CFGNode childNode : childNodes) {
-			this.updateHashMaps(childNode, instructionsHashTable, instructionsDeepLevel, referencedInstructionPositions, currentLevel + 1);
-		}
-	}
-
-	/**
-	 * Atualiza as referências de modo a substituir todos os nós que são referências mas que estão 
-	 * mais próximos do nó raiz com um nó que não é referência e que está mais afastado do nó raiz. 
-	 * 
-	 * @param instructionsHashTable
-	 * 		Mapa onde a chave é o nível da árvore e o valor é a lista de nós de do nível da árvore de {@link CFGNode}
-	 * @param instructionsDeepLevel
-	 * 		Mapa onde a chave é a posição da {@link InstructionHandle} e o valor é o nível mais próximo da raiz em que se encontra essa instrução.
-	 * @param referencedInstructionPositions
-	 * 		Lista de todas as instruções que contém referências no grafo.
-	 *  
-	 */
-	private void updateReferences(Map<Integer, Set<CFGNode>> instructionsHashTable,
-			Map<Integer, Integer> instructionsDeepLevel, 
-			Set<Integer> referencedInstructionPositions) {
-
-		int treeDeep = 0;
-
-		for(Integer level : instructionsHashTable.keySet()) {
-			if(treeDeep < level) {
-				treeDeep = level;
-			}
-		}
-
-		for(Integer referencedInstructionPosition : referencedInstructionPositions) {
-			Integer nearestDeepLevel = instructionsDeepLevel.get(referencedInstructionPosition);
-			Set<CFGNode> nodes = instructionsHashTable.get(nearestDeepLevel);
-			boolean alreadyReferenced = false;
-			CFGNode referencedNode = null;
-
-			for(CFGNode node : nodes) {
-				List<InstructionHandle> instructions = node.getInstructions();
-				if(!instructions.isEmpty() && instructions.get(0).getPosition() == referencedInstructionPosition) {
-					referencedNode = node;
-
-					if(!referencedNode.isReference()) {
-						alreadyReferenced = true;
-						break;	
-					}
-				}
-			}
-
-			if(!alreadyReferenced) {
-				int i = nearestDeepLevel + 1;
-				boolean foundNotReferencedNode = false; 
-
-				while(!foundNotReferencedNode && i <= treeDeep) {
-
-					Iterator<CFGNode> nodesFromSpecifiedDeepLevel = instructionsHashTable.get(i).iterator();
-
-					while(nodesFromSpecifiedDeepLevel.hasNext()) {
-
-						CFGNode nodeFromSpecifiedDeepLevel = nodesFromSpecifiedDeepLevel.next();						
-						List<InstructionHandle> instructionsFromNode = nodeFromSpecifiedDeepLevel.getInstructions();
-
-						if(!nodeFromSpecifiedDeepLevel.isReference() && 
-								!instructionsFromNode.isEmpty() && 
-								instructionsFromNode.get(0).getPosition() == referencedInstructionPosition &&
-								!nodeFromSpecifiedDeepLevel.isTryStatement()) {
-							
-							Map<CFGNode, CFGEdgeType> childNodes = nodeFromSpecifiedDeepLevel.getChildNodes();
-							nodeFromSpecifiedDeepLevel.setChildNodes(new HashMap<CFGNode, CFGEdgeType>());
-							referencedNode.setChildNodes(childNodes);
-
-							referencedNode.setReference(false);
-							nodeFromSpecifiedDeepLevel.setReference(true);
-
-							foundNotReferencedNode = true;
-
-							break;
-						}
-					}
-
-					i++;
-				}
-			}
-		}
 	}
 }
