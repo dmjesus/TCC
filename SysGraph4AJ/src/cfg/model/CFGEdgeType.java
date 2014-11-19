@@ -18,6 +18,10 @@ public enum CFGEdgeType {
 	
 	OUT_SW,
 	
+	OUT_IF,
+	
+	OUT_L,
+	
 	RETURN,
 	
 	CATCH,

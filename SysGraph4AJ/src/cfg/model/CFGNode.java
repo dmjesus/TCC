@@ -46,9 +46,13 @@ public class CFGNode implements IElement {
 	private boolean isCatchNode;
 	private boolean isCaseNode;
 	private boolean isEndNode;
-	private boolean isTrueNode;
-	private boolean isFalseNode;
 	private boolean isOutRefNode;
+	private boolean isOutIfNode;
+	private boolean isIfNode;
+	private boolean isIfTrueNode;
+	private boolean isIfFalseNode;
+	private boolean isLoopTrueNode;
+	private boolean isLoopFalseNode;
 	
 	public CFGNode() {
 		this.instructions = new ArrayList<InstructionHandle>();
@@ -61,11 +65,13 @@ public class CFGNode implements IElement {
 		this.isReference = false;
 		this.isCatchNode = false;
 		this.isFinallyNode = false;
-		this.isTrueNode = false;
-		this.isFalseNode = false;
 		this.isCaseNode = false;
 		this.isOutSwitchNode = false;
 		this.isSwitchNode = false;
+		this.isIfNode = false;
+		this.isIfFalseNode = false;
+		this.isLoopFalseNode = false;
+		this.isLoopTrueNode = false;
 	}
 	
 	/**
@@ -91,6 +97,10 @@ public class CFGNode implements IElement {
 	 * adiciona um nó filho no grafo.
 	 */
 	public synchronized void addChildNode(CFGNode childNode, CFGEdgeType edgeType) {
+		if(this.equals(childNode)){
+			return;
+		}
+		
 		if(childNode != null && childNode.getParents().isEmpty()) {
 			this.childNodes.put(childNode, edgeType);
 			if(this.childNodes.containsKey(childNode)){
@@ -102,10 +112,14 @@ public class CFGNode implements IElement {
 		
 		if(childNode.getChildElements().isEmpty()){
 			childNode.setEndNode(true);
-		}
+		} 
 		
 		childNode.setOwner(this);
 		childNode.getParentEdges().put(this.hashCode(), edgeType);
+		
+		if(this.getParents().size() > 1){
+			this.setEndNode(true);
+		}
 		
 		System.out.println("Aresta " + edgeType + " adicionada ao nó "  + this);
 		this.setEndNode(false);
@@ -167,14 +181,6 @@ public class CFGNode implements IElement {
 		else
 			return null;
 	}
-	
-	public boolean isTrueNode() {
-		return isTrueNode;
-	}
-
-	public void setTrueNode(boolean isTrueNode) {
-		this.isTrueNode = isTrueNode;
-	}
 
 	public CFGNode getReturnNode() {
 		return mergeNode;
@@ -182,10 +188,6 @@ public class CFGNode implements IElement {
 
 	public void setReturnNode(CFGNode returnNode) {
 		this.mergeNode = returnNode;
-	}
-
-	public boolean isFalseNode() {
-		return isFalseNode;
 	}
 
 	public boolean isOutRefNode() {
@@ -198,10 +200,6 @@ public class CFGNode implements IElement {
 
 	public void setOutRefNode(boolean isOutRefNode) {
 		this.isOutRefNode = isOutRefNode;
-	}
-
-	public void setFalseNode(boolean isFalseNode) {
-		this.isFalseNode = isFalseNode;
 	}
 
 	public boolean isFinallyNode() {
@@ -283,10 +281,58 @@ public class CFGNode implements IElement {
 		this.parentNode.add((CFGNode) parentNode);
 	}
 	
+	public boolean isOutIfNode() {
+		return isOutIfNode;
+	}
+
+	public void setOutIfNode(boolean isOutIfNode) {
+		this.isOutIfNode = isOutIfNode;
+	}
+
+	public boolean isIfNode() {
+		return isIfNode;
+	}
+
+	public void setIfNode(boolean isIfNode) {
+		this.isIfNode = isIfNode;
+	}
+
+	public boolean isIfTrueNode() {
+		return isIfTrueNode;
+	}
+
+	public void setIfTrueNode(boolean ifTrueNode) {
+		this.isIfTrueNode = ifTrueNode;
+	}
+
+	public boolean isIfFalseNode() {
+		return isIfFalseNode;
+	}
+
+	public void setIfFalseNode(boolean isIfFalseNode) {
+		this.isIfFalseNode = isIfFalseNode;
+	}
+
+	public boolean isLoopTrueNode() {
+		return isLoopTrueNode;
+	}
+
+	public void setLoopTrueNode(boolean isLoopTrueNode) {
+		this.isLoopTrueNode = isLoopTrueNode;
+	}
+
+	public boolean isLoopFalseNode() {
+		return isLoopFalseNode;
+	}
+
+	public void setLoopFalseNode(boolean isLoopFalseNode) {
+		this.isLoopFalseNode = isLoopFalseNode;
+	}
+	
 	@Override
 	public String toString() {				
 		return this.instructions.size() == 0 ? "[out]":
-			this.tryStatement ? "[try] s:" + this.instructions.get(0).getPosition() + " e:" + this.instructions.get(instructions.size()-1).getPosition(): 
+			this.tryStatement ? "[try] s:" + this.instructions.get(0).getPosition() + " e:" + this.instructions.get(instructions.size()-1).getPosition():
 			new StringBuffer("[").append(this.instructions.get(0).getPosition()).append("]").toString();
 	}
 
@@ -295,7 +341,7 @@ public class CFGNode implements IElement {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result
-				+ ((instructions == null) ? 0 : instructions.hashCode());
+				+ ((instructions.isEmpty()) ? 0 : instructions.hashCode());
 		result = prime * result
 				+ ((tryStatement == null) ? 0 : tryStatement.hashCode());
 		return result;
@@ -380,7 +426,7 @@ public class CFGNode implements IElement {
 				leaf.getReturnNode() == null &&
 				edgeType.equals(CFGEdgeType.OUT_TRY);
 		
-		boolean isEndNode = leaf.getChildElements().isEmpty() && !leaf.equals(this) && leaf.isEndNode();
+		boolean isEndNode = !leaf.equals(this) && leaf.isEndNode();
 		
 		boolean isFinallyNode = leaf.isFinallyNode() && !leaf.equals(this) && leaf.isEndNode();
 		
@@ -440,4 +486,6 @@ public class CFGNode implements IElement {
 		}
 		return false;
 	}
+
+	
 }

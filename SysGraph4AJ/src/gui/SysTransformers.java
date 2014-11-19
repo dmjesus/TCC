@@ -97,17 +97,27 @@ public class SysTransformers {
 				if(node.hasEnd()) {
 					return Color.BLACK;
 				}
+						/*Cor dos vertices tipo laço*/
 				return node.isReference() ? Color.GREEN :
+						node.isLoopFalseNode() ? Color.getHSBColor(0.36f, 1.0f, 0.30f) :
+						node.isLoopTrueNode() ? Color.getHSBColor(0.36f, 1.0f, 0.60f) :
+						
+						/*Cor dos vertices tipo exceção*/
 						node.isTryStatement() ? Color.BLUE :
-						node.isFalseNode() ? Color.LIGHT_GRAY :
-						node.isTrueNode() ? Color.getHSBColor(0.43f, 1.0f, 0.84f) :
 						node.isFinallyNode() ? Color.getHSBColor(0.15f, 1.0f, 0.84f) :
 						node.isCatchNode() ? Color.YELLOW :
-						node.isOutRefNode() ? Color.getHSBColor(0.36f, 1.0f, 0.30f) :
 						node.isOutTryNode() ? Color.getHSBColor(0.702f, 1.0f, 0.30f) :
+						
+						/*Cor dos vertices tipo switch*/
 						node.isOutSwitchNode() ? Color.getHSBColor(0.036f, 1.0f, 0.6f) :
 						node.isCaseNode() ? Color.getHSBColor(0.036f, 0.71f, 1.0f) :
 						node.isSwitchNode() ? Color.getHSBColor(0.036f, 1.0f, 1.0f) :
+						
+						/*Cor dos vertices tipo if*/
+						node.isIfNode() ? Color.getHSBColor(0.92f, 0.61f, 1.0f) :
+						node.isIfTrueNode() ? Color.getHSBColor(0.92f, 0.61f, 0.80f) :
+						node.isIfFalseNode() ? Color.getHSBColor(0.92f, 0.61f, 0.60f) :
+						node.isOutIfNode() ? Color.getHSBColor(0.92f, 0.61f, 0.40f) :
 						Color.ORANGE;
 			}
 			

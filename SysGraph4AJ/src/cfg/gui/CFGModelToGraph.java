@@ -144,7 +144,6 @@ public class CFGModelToGraph {
 			CFGEdge edge = new CFGEdge(root, childNode, root.getChildTypeByNode(childNode));
 			childNode.setSysMethod(CFGUIContext.currentAnalysedMethod);
 			
-//			if(!childNode.isReference() && !delegateTree.containsVertex(childNode)) {
 			if(!delegateTree.containsVertex(childNode)) {
 				delegateTree.addChild(edge, root, childNode);
 				addCFGNodeAndItsChildrenToTree(childNode, delegateTree);
