@@ -247,7 +247,7 @@ public class CFGProcessor {
 					
 					/* Adiciona informações ao bloco finally */
 					if(finallyBlock.getInstructions().isEmpty()){
-						InstructionHandle i = handlerInstExc.getNext();
+						InstructionHandle i = handlerInstExc;
 						for(;i != null &&
 							 !(i.getInstruction().toString().contains("athrow")) &&
 							 !processedInstructionIds.contains(i.getPosition());
@@ -373,6 +373,7 @@ public class CFGProcessor {
 						if((targeter instanceof IfInstruction) &&
 								!targeter.toString().contains("ifge") &&
 								targetPosition <= lastInstPosOf(root) &&
+								!(i.getInstruction() instanceof GotoInstruction) &&
 								!processedInstructionIds.contains(targetPosition)){
 							
 							if(targetPosition > i.getPosition()
@@ -521,6 +522,7 @@ public class CFGProcessor {
 							
 							for(InstructionHandle inst = lastInst.getNext();
 									inst != null &&
+									!processedInstructionIds.contains(inst.getPosition()) &&
 									inst.getPosition() <= lastInstPosOf(root);
 									inst = inst.getNext()){
 								whileOut.addInstruction(inst);
@@ -577,6 +579,7 @@ public class CFGProcessor {
 								
 								for(InstructionHandle j = ifInst.getTarget();
 										j != null &&
+										!(processedInstructionIds.contains(j.getPosition())) &&
 										j.getPosition() < gotoInst.getTarget().getPosition();
 										j = j.getNext()){
 									ifNodeFalse.addInstruction(j);
@@ -584,6 +587,7 @@ public class CFGProcessor {
 								
 								for(InstructionHandle j = gotoInst.getTarget();
 										j != null && 
+										!processedInstructionIds.contains(j.getPosition()) &&
 										j.getPosition() <= lastInstPosOf(root);
 										j = j.getNext()){
 									ifOutNode.addInstruction(j);
@@ -615,6 +619,7 @@ public class CFGProcessor {
 									
 									for(InstructionHandle j = handle.getTarget();
 											j != null &&
+											!processedInstructionIds.contains(j.getPosition()) &&
 											j.getPosition() <= lastInstPosOf(root);
 											j = j.getNext()){
 										ifOutNode.addInstruction(j);
@@ -622,6 +627,7 @@ public class CFGProcessor {
 								} else {
 									for(InstructionHandle j = lastInstIf.getNext();
 											j != null &&
+											!processedInstructionIds.contains(j.getPosition()) &&
 											j.getPosition() <= lastInstPosOf(root);
 											j = j.getNext()){
 										ifOutNode.addInstruction(j);
@@ -754,10 +760,6 @@ public class CFGProcessor {
 						
 					}else if (i.getInstruction() instanceof ReturnInstruction) {
 						
-//						CFGNode returnNode = new CFGNode();
-//						returnNode.addInstruction(i);
-//						root.getInstructions().remove(i);						
-//						root.addChildNode(returnNode, CFGEdgeType.RETURN);
 						processedInstructionIds.add(i.getPosition());
 						
 						return;
@@ -811,7 +813,7 @@ public class CFGProcessor {
 			CFGNode finallyBlock, Set<Integer> processedInstructionIds) {
 		
 		if(finallyBlock != null){
-			int finallyBlockInstSize = finallyBlock.getInstructions().size();
+			int finallyBlockInstSize = finallyBlock.getInstructions().size()-1;
 			
 			for(int i = finallyBlockInstSize; i >= 0; i--){
 				for(CFGNode catchNode : catchs){
