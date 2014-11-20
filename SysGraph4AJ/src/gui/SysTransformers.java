@@ -99,8 +99,8 @@ public class SysTransformers {
 				}
 						/*Cor dos vertices tipo laço*/
 				return node.isReference() ? Color.GREEN :
-						node.isLoopFalseNode() ? Color.getHSBColor(0.36f, 1.0f, 0.30f) :
-						node.isLoopTrueNode() ? Color.getHSBColor(0.36f, 1.0f, 0.60f) :
+						node.isLoopFalseNode() ? Color.getHSBColor(0.36f, 1.0f, 0.25f) :
+						node.isLoopTrueNode() ? Color.getHSBColor(0.36f, 1.0f, 0.75f) :
 						
 						/*Cor dos vertices tipo exceção*/
 						node.isTryStatement() ? Color.BLUE :

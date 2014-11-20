@@ -117,9 +117,9 @@ public class CFGNode implements IElement {
 		childNode.setOwner(this);
 		childNode.getParentEdges().put(this.hashCode(), edgeType);
 		
-		if(this.getParents().size() > 1){
-			this.setEndNode(true);
-		}
+//		if(this.getParents().size() > 1){
+//			this.setEndNode(true);
+//		}
 		
 		System.out.println("Aresta " + edgeType + " adicionada ao nó "  + this);
 		this.setEndNode(false);

@@ -405,12 +405,16 @@ public class CFGProcessor {
 								}
 								
 								for(;inst != null &&
-									inst.getPosition() <= lastInstPosOf(root);
-									inst = inst.getNext()){
+										inst.getPosition() <= lastInstPosOf(root);
+										inst = inst.getNext()){
+										
+										doOutNode.addInstruction(inst);
 									
-									doOutNode.addInstruction(inst);
-								
 								}
+								
+								if(doRootNode.getInstructions().size() > 1 && doOutNode.getChildElements().isEmpty()){
+									doOutNode.addInstruction(doRootNode.getInstructions().get(doRootNode.getInstructions().size()-1));
+								} 
 								
 								root.addChildNode(doRootNode, CFGEdgeType.LOOP);
 								doRootNode.addChildNode(doInternNode, CFGEdgeType.REFERENCE);
@@ -425,7 +429,7 @@ public class CFGProcessor {
 									doRootNode.getParents().get(1).setEndNode(true);
 								}
 								
-								if(doOutNode.getInstructions().size() > 1){
+								if(doOutNode.getInstructions().size() >= 1){
 									doOutNode.getRefToLeaves(doInternNode, CFGEdgeType.OUT_L);
 									doOutNode.setLoopFalseNode(true);
 									processInnerInformation(doOutNode, null, processedInstructionIds);
@@ -482,6 +486,7 @@ public class CFGProcessor {
 							InstructionHandle lastInst = goToIns.getTarget();
 							// Este if é para a primeira situação
 							if(lastInst.getPrev().getInstruction() instanceof IfInstruction){
+								whileOut.addInstruction(lastInst.getPrev());
 								processedInstructionIds.add(goToIns.getTarget().getPrev().getPosition());
 							} else {
 								// Este while é para segunda situação
@@ -490,7 +495,7 @@ public class CFGProcessor {
 												((BranchHandle)lastInst).getTarget().getPosition() >
 										lastInst.getPosition())){
 
-									whileRoot.addInstruction(lastInst);
+									whileOut.addInstruction(lastInst);
 									processedInstructionIds.add(lastInst.getPosition());
 									lastInst = lastInst.getNext();
 								}
@@ -635,6 +640,12 @@ public class CFGProcessor {
 								ifNodeFalse.setIfFalseNode(true);
 								processInnerInformation(ifNodeFalse, null, processedInstructionIds);
 							} 
+							
+							if(ifOutNode.getInstructions().isEmpty() && ifNodeFalse != null && ifNodeFalse.getInstructions().size() > 2){
+								ifOutNode.addInstruction(ifNodeTrue.getInstructions().get(2));
+							} else if(ifOutNode.getInstructions().isEmpty() && ifNodeTrue.getInstructions().size() > 2){
+								ifOutNode.addInstruction(ifNodeTrue.getInstructions().get(2));
+							}
 							
 							if(ifOutNode.getInstructions().size() >= 1){
 								if(ifNodeFalse == null){
