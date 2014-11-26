@@ -94,7 +94,7 @@ public class CFGNode implements IElement {
 	}
 
 	/**
-	 * adiciona um nó filho no grafo.
+	 * Adiciona um nó filho no grafo.
 	 */
 	public synchronized void addChildNode(CFGNode childNode, CFGEdgeType edgeType) {
 		if(this.equals(childNode)){
@@ -116,10 +116,6 @@ public class CFGNode implements IElement {
 		
 		childNode.setOwner(this);
 		childNode.getParentEdges().put(this.hashCode(), edgeType);
-		
-//		if(this.getParents().size() > 1){
-//			this.setEndNode(true);
-//		}
 		
 		System.out.println("Aresta " + edgeType + " adicionada ao nó "  + this);
 		this.setEndNode(false);
